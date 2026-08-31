@@ -9,6 +9,7 @@ metadata:
     {{- include "custom-workbench.labels" . | nindent 4 }}
   annotations:
     argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   params:
     - name: git-url
