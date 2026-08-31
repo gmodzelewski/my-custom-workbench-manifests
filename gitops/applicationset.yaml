@@ -25,6 +25,23 @@ spec:
       destination:
         server: "{{server}}"
         namespace: redhat-ods-applications
+      ignoreDifferences:
+        # OpenShift injects a dockercfg pull secret on ServiceAccounts
+        - kind: ServiceAccount
+          jqPathExpressions:
+            - .imagePullSecrets
+            - .secrets
+            - .metadata.annotations["openshift.io/internal-registry-pull-secret-ref"]
+        # RHOAI notebook controller merges oauth proxy, CA bundles, and platform volumes
+        - group: kubeflow.org
+          kind: Notebook
+          jqPathExpressions:
+            - .spec.template.spec.containers
+            - .spec.template.spec.volumes
+            - .spec.template.metadata
+            - .metadata.annotations
+            - .metadata.finalizers
+            - .metadata.labels
       syncPolicy:
         automated:
           prune: true
