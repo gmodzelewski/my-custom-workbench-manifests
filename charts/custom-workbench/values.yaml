@@ -9,8 +9,8 @@ global:
   manifestsGitUrl: https://github.com/gmodzelewski/my-custom-workbench-manifests.git
   sourceGitRevision: main
   manifestsGitRevision: main
-  imageTag: "550cb85"
-  notebookBuildCommit: "550cb85"
+  imageTag: "9a261d6"
+  notebookBuildCommit: "9a261d6"
   quayOrg: modzelewski
 
 rhoai:
