@@ -26,7 +26,6 @@ spec:
         io.kubernetes.cri-o.Devices: /dev/fuse
     {{- end }}
     spec:
-      {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
       volumes:
         - name: {{ .Values.workbench.name }}
           persistentVolumeClaim:
@@ -34,19 +33,6 @@ spec:
         - name: shm
           emptyDir:
             medium: Memory
-        - name: git-credentials
-          secret:
-            secretName: {{ include "custom-workbench.workbenchGitSecret" . }}
-            defaultMode: 0600
-      {{- else }}
-      volumes:
-        - name: {{ .Values.workbench.name }}
-          persistentVolumeClaim:
-            claimName: {{ .Values.workbench.name }}
-        - name: shm
-          emptyDir:
-            medium: Memory
-      {{- end }}
       {{- if .Values.workbench.cloneRepos.enabled }}
       initContainers:
         - name: clone-repos
@@ -56,6 +42,16 @@ spec:
           env:
             - name: GIT_CONFIG_GLOBAL
               value: /opt/app-root/src/.gitconfig
+            - name: WORKBENCH_GIT_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "custom-workbench.workbenchGitSecret" . }}
+                  key: .git-credentials
+            - name: WORKBENCH_GITCONFIG
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "custom-workbench.workbenchGitSecret" . }}
+                  key: .gitconfig
           {{- end }}
           command:
             - /bin/bash
@@ -64,8 +60,8 @@ spec:
               set -euo pipefail
               {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
               mkdir -p /opt/app-root/src/.local
-              cp /etc/git-secret/.git-credentials /opt/app-root/src/.local/.git-credentials
-              cp /etc/git-secret/.gitconfig /opt/app-root/src/.gitconfig
+              printf '%s' "${WORKBENCH_GIT_CREDENTIALS}" > /opt/app-root/src/.local/.git-credentials
+              printf '%s' "${WORKBENCH_GITCONFIG}" > /opt/app-root/src/.gitconfig
               chmod 600 /opt/app-root/src/.local/.git-credentials /opt/app-root/src/.gitconfig
               {{- end }}
               {{- range .Values.workbench.cloneRepos.repos }}
@@ -79,11 +75,6 @@ spec:
           volumeMounts:
             - mountPath: /opt/app-root/src
               name: {{ .Values.workbench.name }}
-            {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
-            - mountPath: /etc/git-secret
-              name: git-credentials
-              readOnly: true
-            {{- end }}
       {{- end }}
       containers:
         - name: {{ .Values.workbench.name }}
