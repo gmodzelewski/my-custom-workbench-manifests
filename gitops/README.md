@@ -82,6 +82,42 @@ oc create secret generic github-webhook-secret \
 
 After bootstrap, restart the workbench if it was already running so the pod mounts the secret.
 
+## Workbench Podman (cluster-admin, one-time)
+
+Rootless `podman build` / `podman run` in the workbench need more than the default restricted SCC. The chart can bind the workbench ServiceAccount to an SCC when `workbench.podman.enabled: true` (default). Verify your cluster has a suitable SCC:
+
+```bash
+oc get scc | rg -i 'podman|nonroot|anyuid'
+```
+
+Default chart value: `workbench.podman.sccClusterRole: system:openshift:scc:nonroot-v2`. If your sandbox uses a dedicated Podman SCC instead, override in Argo CD / `values-lab.yaml`:
+
+```yaml
+workbench:
+  podman:
+    enabled: true
+    fuseDevice: true
+    sccClusterRole: system:openshift:scc:nonroot-v2
+```
+
+After Argo CD syncs, confirm the RoleBinding:
+
+```bash
+oc get rolebinding custom-workbench-demo-podman-scc -n custom-workbench-demo
+```
+
+Then restart the workbench and verify in the Jupyter terminal:
+
+```bash
+podman --version
+podman info | rg -i 'graphRoot|driver'
+cd /opt/app-root/src/my-custom-workbench
+podman build -t localhost/custom-workbench:debug -f Containerfile .
+podman run --rm localhost/custom-workbench:debug opencode --version
+```
+
+If overlay mount fails, the image falls back to `vfs` (slower but reliable). The `/dev/fuse` pod annotation (OCP 4.15+) enables `fuse-overlayfs` when you switch the driver in `/etc/containers/workbench-storage.conf`.
+
 **Lab/demo:** copy `charts/custom-workbench/values-lab.yaml.example` to `values-lab.yaml` (gitignored), fill credentials, and add to Argo CD `helm.valueFiles`.
 
 **Never commit real credentials.**
