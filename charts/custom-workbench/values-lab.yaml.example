@@ -14,8 +14,5 @@ secrets:
 # tekton:
 #   runInitialPipeline: true
 
-# Workbench git push (when secrets.create=false, create manually in workbench namespace):
-#   oc create secret generic workbench-git-credentials \
-#     --from-literal=.git-credentials='https://<user>:<pat>@github.com' \
-#     --from-file=.gitconfig=workbench.gitconfig \
-#     -n custom-workbench-demo
+# Workbench git credentials (when secrets.create=false):
+#   ./scripts/bootstrap-workbench-git-credentials.sh

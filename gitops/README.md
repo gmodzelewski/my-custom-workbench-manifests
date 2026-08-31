@@ -49,7 +49,8 @@ By default `secrets.create: false` in `charts/custom-workbench/values.yaml`. Cre
 | Secret | Type | Keys | Used by |
 |--------|------|------|---------|
 | `quay-push-credentials` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | Tekton buildah push |
-| `github-pat` | `kubernetes.io/basic-auth` | `username`, `password` | Tekton git push to manifests repo; workbench git clone |
+| `github-pat` | `kubernetes.io/basic-auth` | `username`, `password` | Tekton git push to manifests repo |
+| `workbench-git-credentials` | `Opaque` | `.git-credentials`, `.gitconfig` | Workbench git push/clone (workbench namespace) |
 | `github-webhook-secret` | `Opaque` | `WebHookSecretKey` | EventListener GitHub validation |
 
 ```bash
@@ -67,7 +68,12 @@ oc create secret generic github-pat \
 oc create secret generic github-webhook-secret \
   --from-literal=WebHookSecretKey=<random-string> \
   -n redhat-ods-applications
+
+# Workbench git credentials (from github-pat; not stored in Git)
+./scripts/bootstrap-workbench-git-credentials.sh
 ```
+
+After bootstrap, restart the workbench if it was already running so the pod mounts the secret.
 
 **Lab/demo:** copy `charts/custom-workbench/values-lab.yaml.example` to `values-lab.yaml` (gitignored), fill credentials, and add to Argo CD `helm.valueFiles`.
 

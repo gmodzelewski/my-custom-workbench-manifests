@@ -65,7 +65,9 @@ workbench:
         url: ""
   gitCredentials:
     enabled: true
-    # Set true with secrets.create in values-lab.yaml, or create the secret manually
+    # Mount workbench-git-credentials (create via scripts/bootstrap-workbench-git-credentials.sh)
+    useExistingSecret: true
+    # Set true with secrets.create in values-lab.yaml to render the secret from Helm values
     createSecret: false
     secretName: workbench-git-credentials
     gitHost: github.com
