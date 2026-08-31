@@ -253,6 +253,7 @@ spec:
               MANIFESTS_DIR="$(workspaces.output.path)/manifests-gitops"
               cd "${MANIFESTS_DIR}"
               test -e .git
+              git config --global --add safe.directory "${MANIFESTS_DIR}"
               IMAGE_TAG="$(params.image-tag)"
               GIT_REV="$(params.git-revision)"
               VALUES="charts/custom-workbench/values.yaml"
