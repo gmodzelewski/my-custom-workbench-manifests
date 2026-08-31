@@ -95,9 +95,18 @@ In GitHub → **my-custom-workbench** → Settings → Webhooks → Add:
 
 - Payload URL: Route URL above
 - Content type: `application/json`
-- Secret: same as `github-webhook-secret`
+- Secret: **required** — same value as `WebHookSecretKey` in `github-webhook-secret` (see below)
 - Events: **Just the push event**
 - Branch: `main`
+
+If the Secret field is left blank on GitHub, deliveries still return **202** from the EventListener, but the Tekton **GitHub interceptor rejects the payload** (`no X-Hub-Signature-256 header set`) and **no PipelineRun is created**.
+
+Verify the cluster secret matches what you typed in GitHub:
+
+```bash
+oc get secret github-webhook-secret -n redhat-ods-applications \
+  -o jsonpath='{.data.WebHookSecretKey}' | base64 -d; echo
+```
 
 ## Demo GitOps loop
 
