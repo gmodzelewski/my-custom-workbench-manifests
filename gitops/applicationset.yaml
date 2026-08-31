@@ -32,11 +32,14 @@ spec:
             - .imagePullSecrets
             - .secrets
             - .metadata.annotations["openshift.io/internal-registry-pull-secret-ref"]
-        # RHOAI notebook controller merges oauth proxy, CA bundles, and platform volumes
+        # RHOAI notebook controller merges oauth proxy, CA bundles, platform volumes,
+        # normalizes initContainers (field order, resources: {}), and strips pod template metadata.
         - group: kubeflow.org
           kind: Notebook
           jqPathExpressions:
+            - .spec.template.metadata
             - .spec.template.spec.containers
+            - .spec.template.spec.initContainers
             - .spec.template.spec.volumes
             - .metadata.annotations
             - .metadata.finalizers

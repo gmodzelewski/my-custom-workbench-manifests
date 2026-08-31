@@ -42,7 +42,7 @@ The chart deploys resources into multiple namespaces (`redhat-ods-applications`,
 oc label namespace custom-workbench-demo argocd.argoproj.io/managed-by=openshift-gitops --overwrite
 ```
 
-**Argo CD OutOfSync on Notebook / pipeline ServiceAccount:** The ApplicationSet sets `ignoreDifferences` for fields managed by RHOAI (oauth proxy sidecar, CA bundles, platform volumes on the Notebook CR) and OpenShift (dockercfg `imagePullSecrets` on ServiceAccounts). Re-apply the ApplicationSet after pulling chart changes:
+**Argo CD OutOfSync on Notebook / pipeline ServiceAccount:** The ApplicationSet sets `ignoreDifferences` for fields managed by RHOAI (oauth proxy sidecar, CA bundles, platform volumes, pod template metadata such as `/dev/fuse`, initContainer normalization) and OpenShift (dockercfg `imagePullSecrets` on ServiceAccounts). Argo still **applies** Helm changes to those paths on sync; it only skips drift detection there. Re-apply the ApplicationSet after pulling chart changes:
 
 ```bash
 oc apply -f gitops/applicationset.yaml
@@ -62,6 +62,7 @@ By default `secrets.create: false` in `charts/custom-workbench/values.yaml`. Cre
 | `tekton-docker-config` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | Merged auths for Tekton buildah (bootstrap script) |
 | `github-pat` | `kubernetes.io/basic-auth` | `username`, `password` | Tekton git push to manifests repo |
 | `workbench-git-credentials` | `Opaque` | `.git-credentials`, `.gitconfig` | Workbench git push/clone (workbench namespace) |
+| `workbench-registry-auth` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | In-workbench `podman build` pulls from `registry.redhat.io` |
 | `github-webhook-secret` | `Opaque` | `WebHookSecretKey` | EventListener GitHub validation |
 
 ```bash
@@ -83,6 +84,9 @@ oc create secret generic github-webhook-secret \
 # Workbench git credentials (from github-pat; not stored in Git)
 ./scripts/bootstrap-workbench-git-credentials.sh
 
+# In-workbench podman: registry.redhat.io + internal registry pull auths
+./scripts/bootstrap-workbench-registry-auth.sh
+
 # Tekton buildah: merge Quay + registry pull credentials (required for webhook builds)
 ./scripts/bootstrap-tekton-docker-config.sh
 ./scripts/configure-github-webhook.sh
@@ -92,7 +96,7 @@ After bootstrap, restart the workbench if it was already running so the pod moun
 
 ## Workbench Podman (cluster-admin, one-time)
 
-Rootless `podman build` / `podman run` need SCC **`custom-workbench-podman`** (UID **1001**). The SCC is **cluster-scoped** — Argo CD cannot create or patch it. Run once as cluster-admin:
+Rootless `podman build` / `podman run` need SCC **`custom-workbench-podman`** (UID **1001**, `SETUID`/`SETGID` only). The SCC is **cluster-scoped** — Argo CD cannot create or patch it. Run once as cluster-admin:
 
 ```bash
 ./scripts/bootstrap-workbench-podman-scc.sh
@@ -100,7 +104,25 @@ Rootless `podman build` / `podman run` need SCC **`custom-workbench-podman`** (U
 
 This applies `gitops/custom-workbench-podman-scc.yaml` and grants the SCC to the workbench ServiceAccount (`oc adm policy add-scc-to-user`). Custom SCCs do not get a `system:openshift:scc:*` ClusterRole, so a RoleBinding does not work.
 
-The Notebook spec sets `runAsUser` / `fsGroup` **1001**. Restart the workbench from the RHOAI dashboard after bootstrap.
+**Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false` on the notebook container. The SCC allows `SETUID`/`SETGID` (minimum for rootless Podman user namespaces) and SCC-level `allowPrivilegeEscalation: true` for `newuidmap`. Storage uses **`vfs`** on the PVC — no `/dev/fuse` or overlay mounts. **Tekton remains the production build path**; in-workbench Podman is debug-only.
+
+The Notebook spec sets `runAsUser` / `fsGroup` **1001** (`fsGroupChangePolicy: OnRootMismatch`). Restart the workbench from the RHOAI dashboard after bootstrap.
+
+For `podman build`, bootstrap registry auth so pulls from `registry.redhat.io` work:
+
+```bash
+./scripts/bootstrap-workbench-registry-auth.sh
+```
+
+Restart the workbench so the init container writes `auth.json` onto the PVC. Or in a running terminal:
+
+```bash
+mkdir -p ~/.config/containers
+oc get secret workbench-registry-auth -n custom-workbench-demo \
+  -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d > ~/.config/containers/auth.json
+chmod 600 ~/.config/containers/auth.json
+export REGISTRY_AUTH_FILE=~/.config/containers/auth.json
+```
 
 ```bash
 podman --version
@@ -109,8 +131,6 @@ cd /opt/app-root/src/my-custom-workbench
 podman build -t localhost/custom-workbench:debug -f Containerfile .
 podman run --rm localhost/custom-workbench:debug opencode --version
 ```
-
-If overlay mount fails, the image falls back to `vfs` (slower but reliable). The `/dev/fuse` pod annotation (OCP 4.15+) enables `fuse-overlayfs` when you switch the driver in `/etc/containers/workbench-storage.conf`.
 
 **Lab/demo:** copy `charts/custom-workbench/values-lab.yaml.example` to `values-lab.yaml` (gitignored), fill credentials, and add to Argo CD `helm.valueFiles`.
 

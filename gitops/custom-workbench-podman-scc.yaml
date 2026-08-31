@@ -6,8 +6,10 @@ metadata:
   name: custom-workbench-podman
   annotations:
     kubernetes.io/description: >-
-      Allows rootless podman/buildah in the custom workbench (UID 1001,
-      user namespaces, privilege escalation for newuidmap).
+      Minimum OpenShift SCC for rootless podman/buildah in the custom workbench
+      (UID 1001, user namespaces). Allows SETUID/SETGID only; no privileged
+      containers or host access. SCC-level allowPrivilegeEscalation is required
+      for newuidmap; the workbench container sets allowPrivilegeEscalation false.
 allowHostDirVolumePlugin: false
 allowHostIPC: false
 allowHostNetwork: false
@@ -15,7 +17,9 @@ allowHostPID: false
 allowHostPorts: false
 allowPrivilegeEscalation: true
 allowPrivilegedContainer: false
-allowedCapabilities: null
+allowedCapabilities:
+  - SETUID
+  - SETGID
 defaultAddCapabilities: null
 fsGroup:
   type: RunAsAny

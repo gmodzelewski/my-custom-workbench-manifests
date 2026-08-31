@@ -29,7 +29,8 @@ spec:
       {{- if .Values.workbench.podman.enabled }}
       securityContext:
         runAsUser: {{ .Values.workbench.podman.runAsUser }}
-        fsGroup: 0
+        fsGroup: {{ .Values.workbench.podman.fsGroup }}
+        fsGroupChangePolicy: OnRootMismatch
         runAsNonRoot: true
       {{- end }}
       volumes:
@@ -44,8 +45,9 @@ spec:
         - name: clone-repos
           image: {{ include "custom-workbench.internalWorkbenchImage" . }}
           imagePullPolicy: Always
-          {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
+          {{- if or (eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true") (eq (include "custom-workbench.workbenchRegistryAuthEnabled" .) "true") }}
           env:
+            {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
             - name: GIT_CONFIG_GLOBAL
               value: /opt/app-root/src/.gitconfig
             - name: WORKBENCH_GIT_CREDENTIALS
@@ -58,6 +60,14 @@ spec:
                 secretKeyRef:
                   name: {{ include "custom-workbench.workbenchGitSecret" . }}
                   key: .gitconfig
+            {{- end }}
+            {{- if eq (include "custom-workbench.workbenchRegistryAuthEnabled" .) "true" }}
+            - name: WORKBENCH_REGISTRY_AUTH_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "custom-workbench.workbenchRegistryAuthSecret" . }}
+                  key: .dockerconfigjson
+            {{- end }}
           {{- end }}
           command:
             - /bin/bash
@@ -75,6 +85,12 @@ spec:
               done
               mkdir -p /opt/app-root/src/.config/containers \
                        /opt/app-root/src/.local/share/containers/storage
+              {{- if eq (include "custom-workbench.workbenchRegistryAuthEnabled" .) "true" }}
+              if [ -n "${WORKBENCH_REGISTRY_AUTH_JSON:-}" ]; then
+                printf '%s' "${WORKBENCH_REGISTRY_AUTH_JSON}" > /opt/app-root/src/.config/containers/auth.json
+                chmod 600 /opt/app-root/src/.config/containers/auth.json
+              fi
+              {{- end }}
               {{- end }}
               {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
               mkdir -p /opt/app-root/src/.local
@@ -100,10 +116,18 @@ spec:
           image: {{ include "custom-workbench.internalWorkbenchImage" . }}
           imagePullPolicy: Always
           workingDir: /opt/app-root/src
+          {{- if .Values.workbench.podman.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: false
+          {{- end }}
           env:
             {{- if .Values.workbench.podman.enabled }}
             - name: CONTAINERS_STORAGE_CONF
               value: /etc/containers/workbench-storage.conf
+            {{- if eq (include "custom-workbench.workbenchRegistryAuthEnabled" .) "true" }}
+            - name: REGISTRY_AUTH_FILE
+              value: /opt/app-root/src/.config/containers/auth.json
+            {{- end }}
             {{- end }}
             - name: NOTEBOOK_ARGS
               value: |-

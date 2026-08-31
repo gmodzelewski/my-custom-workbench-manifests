@@ -110,6 +110,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and .Values.workbench.gitCredentials.enabled (or .Values.secrets.create .Values.workbench.gitCredentials.createSecret) -}}true{{- end -}}
 {{- end }}
 
+{{- define "custom-workbench.workbenchRegistryAuthSecret" -}}
+{{- .Values.workbench.podman.registryAuth.secretName }}
+{{- end }}
+
+{{- define "custom-workbench.workbenchRegistryAuthEnabled" -}}
+{{- if and .Values.workbench.podman.enabled .Values.workbench.podman.registryAuth.enabled .Values.workbench.podman.registryAuth.useExistingSecret -}}true{{- end -}}
+{{- end }}
+
 {{- define "custom-workbench.workbenchGitConfig" -}}
 [credential]
     helper = store --file /opt/app-root/src/.local/.git-credentials

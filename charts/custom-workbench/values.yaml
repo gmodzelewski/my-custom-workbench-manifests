@@ -65,11 +65,17 @@ workbench:
         url: ""
   podman:
     enabled: true
-    fuseDevice: true
+    # vfs-only for least privilege; fuse-overlayfs needs /dev/fuse (stripped by RHOAI)
+    fuseDevice: false
     # SCC is cluster-scoped — apply via scripts/bootstrap-workbench-podman-scc.sh (cluster-admin)
     createScc: false
     sccName: custom-workbench-podman
     runAsUser: 1001
+    fsGroup: 1001
+    registryAuth:
+      enabled: true
+      useExistingSecret: true
+      secretName: workbench-registry-auth
   gitCredentials:
     enabled: true
     # Mount workbench-git-credentials (create via scripts/bootstrap-workbench-git-credentials.sh)
