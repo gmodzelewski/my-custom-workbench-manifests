@@ -42,6 +42,14 @@ The chart deploys resources into multiple namespaces (`redhat-ods-applications`,
 oc label namespace custom-workbench-demo argocd.argoproj.io/managed-by=openshift-gitops --overwrite
 ```
 
+**Argo CD OutOfSync on Notebook / pipeline ServiceAccount:** The ApplicationSet sets `ignoreDifferences` for fields managed by RHOAI (oauth proxy sidecar, CA bundles, platform volumes on the Notebook CR) and OpenShift (dockercfg `imagePullSecrets` on ServiceAccounts). Re-apply the ApplicationSet after pulling chart changes:
+
+```bash
+oc apply -f gitops/applicationset.yaml
+```
+
+The ApplicationSet controller updates the generated Application; Argo should then show **Synced** for those resources.
+
 ## Secrets (lab vs production)
 
 By default `secrets.create: false` in `charts/custom-workbench/values.yaml`. Create secrets manually before the Tekton pipeline can run:
