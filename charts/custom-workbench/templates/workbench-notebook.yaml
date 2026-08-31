@@ -29,7 +29,7 @@ spec:
       {{- if .Values.workbench.podman.enabled }}
       securityContext:
         runAsUser: {{ .Values.workbench.podman.runAsUser }}
-        fsGroup: {{ .Values.workbench.podman.runAsUser }}
+        fsGroup: 0
         runAsNonRoot: true
       {{- end }}
       volumes:
@@ -64,6 +64,18 @@ spec:
             - -lc
             - |
               set -euo pipefail
+              {{- if .Values.workbench.podman.enabled }}
+              WORKDIR_UID="$(id -u)"
+              for rel in .config .local/share/containers; do
+                target="/opt/app-root/src/${rel}"
+                if [ -e "$target" ] && [ "$(stat -c '%u' "$target" 2>/dev/null || echo x)" != "${WORKDIR_UID}" ]; then
+                  echo "Removing ${target} (owner mismatch for UID ${WORKDIR_UID})"
+                  rm -rf "$target"
+                fi
+              done
+              mkdir -p /opt/app-root/src/.config/containers \
+                       /opt/app-root/src/.local/share/containers/storage
+              {{- end }}
               {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
               mkdir -p /opt/app-root/src/.local
               rm -f /opt/app-root/src/.local/.git-credentials /opt/app-root/src/.gitconfig
