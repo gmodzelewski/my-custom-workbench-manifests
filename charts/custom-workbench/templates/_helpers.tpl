@@ -106,6 +106,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and .Values.workbench.gitCredentials.enabled (or .Values.secrets.create .Values.workbench.gitCredentials.createSecret) -}}true{{- end -}}
 {{- end }}
 
+{{- define "custom-workbench.workbenchGitConfig" -}}
+[credential]
+    helper = store --file /opt/app-root/src/.local/.git-credentials
+[user]
+    name = {{ include "custom-workbench.workbenchGitUsername" . }}
+    email = {{ include "custom-workbench.workbenchGitUsername" . }}@users.noreply.github.com
+{{- end }}
+
 {{- define "custom-workbench.imageSelection" -}}
 {{- printf "%s:%s" .Values.rhoai.imageName (include "custom-workbench.imageTag" .) }}
 {{- end }}

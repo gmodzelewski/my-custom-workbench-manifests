@@ -57,6 +57,12 @@ spec:
             - -lc
             - |
               set -euo pipefail
+              {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
+              mkdir -p /opt/app-root/src/.local
+              cp /etc/git-secret/.git-credentials /opt/app-root/src/.local/.git-credentials
+              cp /etc/git-secret/.gitconfig /opt/app-root/src/.gitconfig
+              chmod 600 /opt/app-root/src/.local/.git-credentials /opt/app-root/src/.gitconfig
+              {{- end }}
               {{- range .Values.workbench.cloneRepos.repos }}
               if [ ! -d /opt/app-root/src/{{ .dir }}/.git ]; then
                 git clone {{ include "custom-workbench.cloneRepoUrlFor" (dict "dir" .dir "url" .url "root" $) }} \
@@ -69,13 +75,8 @@ spec:
             - mountPath: /opt/app-root/src
               name: {{ .Values.workbench.name }}
             {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
-            - mountPath: /opt/app-root/src/.git-credentials
+            - mountPath: /etc/git-secret
               name: git-credentials
-              subPath: .git-credentials
-              readOnly: true
-            - mountPath: /opt/app-root/src/.gitconfig
-              name: git-credentials
-              subPath: .gitconfig
               readOnly: true
             {{- end }}
       {{- end }}
@@ -114,16 +115,6 @@ spec:
               name: {{ .Values.workbench.name }}
             - mountPath: /dev/shm
               name: shm
-            {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
-            - mountPath: /opt/app-root/src/.git-credentials
-              name: git-credentials
-              subPath: .git-credentials
-              readOnly: true
-            - mountPath: /opt/app-root/src/.gitconfig
-              name: git-credentials
-              subPath: .gitconfig
-              readOnly: true
-            {{- end }}
       enableServiceLinks: false
       serviceAccountName: {{ .Values.workbench.name }}
 {{- end }}

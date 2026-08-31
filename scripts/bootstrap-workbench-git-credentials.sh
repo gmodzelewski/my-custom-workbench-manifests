@@ -27,7 +27,7 @@ GITCONFIG="$(mktemp)"
 trap 'rm -f "${GITCONFIG}"' EXIT
 cat >"${GITCONFIG}" <<EOF
 [credential]
-    helper = store --file /opt/app-root/src/.git-credentials
+    helper = store --file /opt/app-root/src/.local/.git-credentials
 [user]
     name = ${GIT_USERNAME}
     email = ${GIT_USERNAME}@users.noreply.github.com
