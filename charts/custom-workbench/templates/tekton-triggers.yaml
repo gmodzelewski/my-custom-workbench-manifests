@@ -41,7 +41,8 @@ spec:
       spec:
         pipelineRef:
           name: {{ .Values.tekton.pipelineName }}
-        serviceAccountName: {{ .Values.tekton.serviceAccount }}
+        taskRunTemplate:
+          serviceAccountName: {{ .Values.tekton.serviceAccount }}
         params:
           - name: git-url
             value: $(tt.params.gitrepositoryurl)
@@ -58,7 +59,7 @@ spec:
                     storage: {{ .Values.tekton.workspaceStorage }}
           - name: docker-credentials
             secret:
-              secretName: {{ include "custom-workbench.secret.quay" . }}
+              secretName: {{ include "custom-workbench.secret.tektonDockerConfig" . }}
               items:
                 - key: .dockerconfigjson
                   path: config.json

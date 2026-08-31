@@ -78,6 +78,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- .Values.secrets.quay.name }}
 {{- end }}
 
+{{- define "custom-workbench.secret.tektonDockerConfig" -}}
+{{- .Values.secrets.tektonDockerConfig.name }}
+{{- end }}
+
 {{- define "custom-workbench.secret.githubPat" -}}
 {{- .Values.secrets.github.patName }}
 {{- end }}

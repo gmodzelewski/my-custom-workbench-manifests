@@ -48,7 +48,10 @@ By default `secrets.create: false` in `charts/custom-workbench/values.yaml`. Cre
 
 | Secret | Type | Keys | Used by |
 |--------|------|------|---------|
-| `quay-push-credentials` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | Tekton buildah push |
+| `quay-push-credentials` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | Tekton buildah push to Quay |
+| `internal-registry-pull` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | Pull RHOAI notebook base from internal registry |
+| `redhat-registry-pull` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | Pull runtime base from `registry.redhat.io` |
+| `tekton-docker-config` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | Merged auths for Tekton buildah (bootstrap script) |
 | `github-pat` | `kubernetes.io/basic-auth` | `username`, `password` | Tekton git push to manifests repo |
 | `workbench-git-credentials` | `Opaque` | `.git-credentials`, `.gitconfig` | Workbench git push/clone (workbench namespace) |
 | `github-webhook-secret` | `Opaque` | `WebHookSecretKey` | EventListener GitHub validation |
@@ -71,6 +74,10 @@ oc create secret generic github-webhook-secret \
 
 # Workbench git credentials (from github-pat; not stored in Git)
 ./scripts/bootstrap-workbench-git-credentials.sh
+
+# Tekton buildah: merge Quay + registry pull credentials (required for webhook builds)
+./scripts/bootstrap-tekton-docker-config.sh
+./scripts/configure-github-webhook.sh
 ```
 
 After bootstrap, restart the workbench if it was already running so the pod mounts the secret.

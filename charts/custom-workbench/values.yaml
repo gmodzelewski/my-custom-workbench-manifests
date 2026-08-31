@@ -77,6 +77,13 @@ workbench:
 # Lab/demo only — do NOT commit real credentials. Use values-lab.yaml locally.
 secrets:
   create: false
+  # Merged quay + registry pull auths for Tekton buildah (see scripts/bootstrap-tekton-docker-config.sh)
+  tektonDockerConfig:
+    name: tekton-docker-config
+  internalRegistryPull:
+    name: internal-registry-pull
+  redhatRegistryPull:
+    name: redhat-registry-pull
   quay:
     name: quay-push-credentials
     server: quay.io
