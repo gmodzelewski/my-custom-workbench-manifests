@@ -108,6 +108,15 @@ oc get secret github-webhook-secret -n redhat-ods-applications \
   -o jsonpath='{.data.WebHookSecretKey}' | base64 -d; echo
 ```
 
+Or sync automatically with the GitHub CLI (requires `gh auth login`):
+
+```bash
+./scripts/configure-github-webhook.sh
+gh api repos/gmodzelewski/my-custom-workbench/hooks --jq '.[] | {url: .config.url, has_secret: (.config.secret != null)}'
+```
+
+The second command must show `has_secret: true`. If it shows `false`, pushes will return 202 but no PipelineRun is created.
+
 ## Demo GitOps loop
 
 1. Edit `Containerfile` in **my-custom-workbench**, push to `main`.
