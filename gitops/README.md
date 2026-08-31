@@ -98,17 +98,16 @@ Rootless `podman build` / `podman run` in the workbench need more than the defau
 oc get scc | rg -i 'podman|nonroot|anyuid'
 ```
 
-Default chart value: `workbench.podman.sccClusterRole: system:openshift:scc:nonroot-v2`. If your sandbox uses a dedicated Podman SCC instead, override in Argo CD / `values-lab.yaml`:
+Default chart value: `workbench.podman.sccClusterRole: system:openshift:scc:custom-workbench-podman` (SCC created by the chart when `workbench.podman.createScc: true`). The workbench pod must run as **UID 1001** (`runAsUser` in the Notebook spec) — not the random UID from `restricted-v2`.
 
-```yaml
-workbench:
-  podman:
-    enabled: true
-    fuseDevice: true
-    sccClusterRole: system:openshift:scc:nonroot-v2
+If you previously bound `nonroot-v2`, delete the RoleBinding once (roleRef is immutable) before syncing:
+
+```bash
+oc delete rolebinding custom-workbench-demo-podman-scc -n custom-workbench-demo
+oc apply -f gitops/applicationset.yaml   # or sync in Argo CD
 ```
 
-After Argo CD syncs, confirm the RoleBinding:
+Restart the workbench from the RHOAI dashboard after sync so the pod picks up the new SCC and UID.
 
 ```bash
 oc get rolebinding custom-workbench-demo-podman-scc -n custom-workbench-demo
