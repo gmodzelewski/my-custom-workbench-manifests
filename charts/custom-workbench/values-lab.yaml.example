@@ -1,0 +1,21 @@
+# Lab/demo values — copy to values-lab.yaml and fill in credentials.
+# values-lab.yaml is gitignored; never commit real secrets.
+
+secrets:
+  create: true
+  quay:
+    username: "<quay-robot-user>"
+    password: "<quay-robot-token>"
+  github:
+    pat: "<github-pat-with-read-source-and-push-manifests>"
+    webhookSecret: "<random-webhook-secret>"
+
+# Optional: trigger first build on helm upgrade
+# tekton:
+#   runInitialPipeline: true
+
+# Workbench git push (when secrets.create=false, create manually in workbench namespace):
+#   oc create secret generic workbench-git-credentials \
+#     --from-literal=.git-credentials='https://<user>:<pat>@github.com' \
+#     --from-file=.gitconfig=workbench.gitconfig \
+#     -n custom-workbench-demo

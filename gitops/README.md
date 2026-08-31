@@ -1,0 +1,111 @@
+# GitOps — custom workbench (OpenShift GitOps / Argo CD)
+
+Deploy the custom workbench stack from the Helm chart in **[my-custom-workbench-manifests](https://github.com/gmodzelewski/my-custom-workbench-manifests)** using an Argo CD ApplicationSet.
+
+Image source code lives in **[my-custom-workbench](https://github.com/gmodzelewski/my-custom-workbench)** (Containerfiles only).
+
+## Prerequisites
+
+- OpenShift cluster with **Red Hat OpenShift AI (RHOAI) 3.4**
+- **OpenShift Pipelines** operator (`oc get csv -n openshift-operators | grep openshift-pipelines`)
+- **OpenShift GitOps** operator (`oc get csv -n openshift-operators | grep openshift-gitops`)
+- Quay repositories for `custom-workbench-opencode` and `custom-workbench-opencode-runtime`
+- GitHub PAT with **read** access to the source repo and **push** access to this manifests repo
+- GitHub webhook on the **source repo only** (see below)
+
+## Bootstrap
+
+1. Install OpenShift GitOps if not already present (OperatorHub → OpenShift GitOps).
+
+2. Apply the ApplicationSet:
+
+   ```bash
+   oc apply -f gitops/applicationset.yaml
+   ```
+
+3. Confirm the Application in the Argo CD UI or:
+
+   ```bash
+   oc get applications -n openshift-gitops | grep custom-workbench
+   ```
+
+The chart deploys resources into multiple namespaces (`redhat-ods-applications`, `custom-workbench-demo`).
+
+## Secrets (lab vs production)
+
+By default `secrets.create: false` in `charts/custom-workbench/values.yaml`. Create secrets manually before the Tekton pipeline can run:
+
+| Secret | Type | Keys | Used by |
+|--------|------|------|---------|
+| `quay-push-credentials` | `kubernetes.io/dockerconfigjson` | `.dockerconfigjson` | Tekton buildah push |
+| `github-pat` | `kubernetes.io/basic-auth` | `username`, `password` | Tekton git push to manifests repo; workbench git clone |
+| `github-webhook-secret` | `Opaque` | `WebHookSecretKey` | EventListener GitHub validation |
+
+```bash
+oc create secret docker-registry quay-push-credentials \
+  --docker-server=quay.io \
+  --docker-username=<robot> \
+  --docker-password=<token> \
+  -n redhat-ods-applications
+
+oc create secret generic github-pat \
+  --from-literal=username=git \
+  --from-literal=password=<github-pat-with-push-to-manifests> \
+  -n redhat-ods-applications
+
+oc create secret generic github-webhook-secret \
+  --from-literal=WebHookSecretKey=<random-string> \
+  -n redhat-ods-applications
+```
+
+**Lab/demo:** copy `charts/custom-workbench/values-lab.yaml.example` to `values-lab.yaml` (gitignored), fill credentials, and add to Argo CD `helm.valueFiles`.
+
+**Never commit real credentials.**
+
+## GitHub webhook (source repo only)
+
+Configure the webhook on **`my-custom-workbench`**, not on this manifests repo. The EventListener CEL filter accepts pushes to the source repo `main` branch only — this prevents pipeline loops when Tekton commits image tag bumps here.
+
+After sync, get the EventListener Route URL:
+
+```bash
+oc get route el-custom-workbench-opencode \
+  -n redhat-ods-applications \
+  -o jsonpath='https://{.spec.host}{"\n"}'
+```
+
+In GitHub → **my-custom-workbench** → Settings → Webhooks → Add:
+
+- Payload URL: Route URL above
+- Content type: `application/json`
+- Secret: same as `github-webhook-secret`
+- Events: **Just the push event**
+- Branch: `main`
+
+## Demo GitOps loop
+
+1. Edit `Containerfile` in **my-custom-workbench**, push to `main`.
+2. Webhook → Tekton PipelineRun: build image tagged with **7-char commit SHA**, push to Quay, `oc import-image`.
+3. Pipeline commits to **this repo**, updating `global.imageTag` and `global.notebookBuildCommit` in `values.yaml`.
+4. Argo CD auto-syncs the Helm chart.
+5. **Stop and restart** the workbench in the RHOAI dashboard — the running pod does not pick up a new image until restart.
+
+## Optional first build
+
+`tekton.runInitialPipeline` defaults to `false`. To trigger an initial PipelineRun:
+
+```bash
+helm upgrade custom-workbench charts/custom-workbench/ \
+  --set tekton.runInitialPipeline=true
+```
+
+Ensure an image matching the current `global.imageTag` in `values.yaml` exists in Quay before the first GitOps sync (run one pipeline build or push manually).
+
+## Local validation
+
+```bash
+helm template custom-workbench charts/custom-workbench/ --debug
+helm template custom-workbench charts/custom-workbench/ \
+  -f charts/custom-workbench/values-lab.yaml \
+  --set secrets.create=true
+```

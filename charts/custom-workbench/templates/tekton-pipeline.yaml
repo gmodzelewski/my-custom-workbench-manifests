@@ -1,0 +1,275 @@
+{{- if .Values.tekton.enabled }}
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: {{ .Values.tekton.pipelineName }}
+  namespace: {{ include "custom-workbench.rhoaiNamespace" . }}
+  labels:
+    app: {{ .Values.rhoai.imageName }}
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  params:
+    - name: git-url
+      type: string
+      default: {{ include "custom-workbench.sourceGitUrl" . | quote }}
+    - name: git-revision
+      type: string
+      default: {{ .Values.global.sourceGitRevision | quote }}
+    - name: manifests-git-url
+      type: string
+      default: {{ include "custom-workbench.manifestsGitUrl" . | quote }}
+    - name: manifests-git-revision
+      type: string
+      default: {{ .Values.global.manifestsGitRevision | quote }}
+    - name: quay-org
+      type: string
+      default: {{ .Values.global.quayOrg | quote }}
+    - name: workbench-base-image
+      type: string
+      default: {{ .Values.rhoai.workbenchBaseImage | quote }}
+    - name: runtime-base-image
+      type: string
+      default: {{ .Values.rhoai.runtimeBaseImage | quote }}
+    - name: rhoai-namespace
+      type: string
+      default: {{ include "custom-workbench.rhoaiNamespace" . | quote }}
+    - name: workbench-image-name
+      type: string
+      default: {{ .Values.rhoai.imageName | quote }}
+    - name: runtime-image-name
+      type: string
+      default: {{ .Values.rhoai.runtimeImageName | quote }}
+  workspaces:
+    - name: shared-workspace
+    - name: docker-credentials
+    - name: git-credentials
+  tasks:
+    - name: compute-image-tag
+      taskSpec:
+        params:
+          - name: git-revision
+            type: string
+        results:
+          - name: image-tag
+            type: string
+        steps:
+          - name: compute
+            image: registry.redhat.io/ubi9/ubi-minimal:latest
+            script: |
+              #!/bin/bash
+              set -euo pipefail
+              rev="$(params.git-revision)"
+              echo -n "${rev:0:7}" > "$(results.image-tag.path)"
+        params:
+          - name: git-revision
+            value: $(params.git-revision)
+
+    - name: fetch-repository
+      runAfter:
+        - compute-image-tag
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: URL
+          value: $(params.git-url)
+        - name: REVISION
+          value: $(params.git-revision)
+        - name: SUBDIRECTORY
+          value: ""
+        - name: DELETE_EXISTING
+          value: "true"
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+
+    - name: build-workbench
+      runAfter:
+        - fetch-repository
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: IMAGE
+          value: quay.io/$(params.quay-org)/$(params.workbench-image-name):$(tasks.compute-image-tag.results.image-tag)
+        - name: DOCKERFILE
+          value: Containerfile
+        - name: CONTEXT
+          value: .
+        - name: TLS_VERIFY
+          value: "true"
+        - name: BUILD_ARGS
+          value:
+            - BASE_IMAGE=$(params.workbench-base-image)
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: dockerconfig
+          workspace: docker-credentials
+
+    {{- if .Values.tekton.buildRuntime }}
+    - name: build-runtime
+      runAfter:
+        - fetch-repository
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: buildah
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: IMAGE
+          value: quay.io/$(params.quay-org)/$(params.runtime-image-name):$(tasks.compute-image-tag.results.image-tag)
+        - name: DOCKERFILE
+          value: Containerfile.runtime
+        - name: CONTEXT
+          value: .
+        - name: TLS_VERIFY
+          value: "true"
+        - name: BUILD_ARGS
+          value:
+            - RUNTIME_BASE_IMAGE=$(params.runtime-base-image)
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: dockerconfig
+          workspace: docker-credentials
+    {{- end }}
+
+    - name: import-workbench
+      runAfter:
+        - build-workbench
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: openshift-client
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: SCRIPT
+          value: |
+            oc import-image $(params.workbench-image-name):$(tasks.compute-image-tag.results.image-tag) \
+              --from=quay.io/$(params.quay-org)/$(params.workbench-image-name):$(tasks.compute-image-tag.results.image-tag) \
+              --confirm -n $(params.rhoai-namespace)
+
+    {{- if .Values.tekton.buildRuntime }}
+    - name: import-runtime
+      runAfter:
+        - build-runtime
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: openshift-client
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: SCRIPT
+          value: |
+            oc import-image $(params.runtime-image-name):$(tasks.compute-image-tag.results.image-tag) \
+              --from=quay.io/$(params.quay-org)/$(params.runtime-image-name):$(tasks.compute-image-tag.results.image-tag) \
+              --confirm -n $(params.rhoai-namespace)
+    {{- end }}
+
+    - name: fetch-manifests
+      runAfter:
+        - import-workbench
+        {{- if .Values.tekton.buildRuntime }}
+        - import-runtime
+        {{- end }}
+      taskRef:
+        resolver: cluster
+        params:
+          - name: kind
+            value: task
+          - name: name
+            value: git-clone
+          - name: namespace
+            value: openshift-pipelines
+      params:
+        - name: URL
+          value: $(params.manifests-git-url)
+        - name: REVISION
+          value: $(params.manifests-git-revision)
+        - name: SUBDIRECTORY
+          value: manifests-gitops
+        - name: DELETE_EXISTING
+          value: "true"
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+
+    - name: update-gitops
+      runAfter:
+        - fetch-manifests
+      params:
+        - name: image-tag
+          value: $(tasks.compute-image-tag.results.image-tag)
+        - name: git-revision
+          value: $(params.git-revision)
+        - name: manifests-git-url
+          value: $(params.manifests-git-url)
+      taskSpec:
+        params:
+          - name: image-tag
+            type: string
+          - name: git-revision
+            type: string
+          - name: manifests-git-url
+            type: string
+        workspaces:
+          - name: source
+          - name: git-credentials
+        steps:
+          - name: commit-and-push
+            image: docker.io/alpine/git:2.47.1
+            workingDir: $(workspaces.source.path)/manifests-gitops
+            script: |
+              #!/bin/sh
+              set -eu
+              IMAGE_TAG="$(params.image-tag)"
+              GIT_REV="$(params.git-revision)"
+              VALUES="charts/custom-workbench/values.yaml"
+              sed -i "s/^  imageTag:.*/  imageTag: \"${IMAGE_TAG}\"/" "${VALUES}"
+              sed -i "s/^  notebookBuildCommit:.*/  notebookBuildCommit: \"${IMAGE_TAG}\"/" "${VALUES}"
+              git config user.email "tekton@custom-workbench.local"
+              git config user.name "Tekton Pipeline"
+              GIT_USER="$(cat "$(workspaces.git-credentials.path)/username")"
+              GIT_PASS="$(cat "$(workspaces.git-credentials.path)/password")"
+              AUTH_URL="$(echo "$(params.manifests-git-url)" | sed "s|https://|https://${GIT_USER}:${GIT_PASS}@|")"
+              git remote set-url origin "${AUTH_URL}"
+              git add charts/custom-workbench/values.yaml
+              if git diff --staged --quiet; then
+                echo "No manifest changes to commit"
+                exit 0
+              fi
+              git commit -m "ci: deploy image ${IMAGE_TAG} from source ${GIT_REV}"
+              git push origin main
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: git-credentials
+          workspace: git-credentials
+{{- end }}

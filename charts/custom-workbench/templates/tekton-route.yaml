@@ -1,0 +1,22 @@
+{{- if and .Values.tekton.enabled .Values.tekton.eventListener.enabled .Values.tekton.eventListener.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.tekton.eventListener.route.name }}
+  namespace: {{ include "custom-workbench.rhoaiNamespace" . }}
+  labels:
+    app: {{ .Values.rhoai.imageName }}
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  to:
+    kind: Service
+    name: el-{{ .Values.tekton.pipelineName }}
+    weight: 100
+  port:
+    targetPort: http-listener
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}

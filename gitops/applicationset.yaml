@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: custom-workbench
+  namespace: openshift-gitops
+spec:
+  generators:
+    - list:
+        elements:
+          - name: in-cluster
+            server: https://kubernetes.default.svc
+  template:
+    metadata:
+      name: custom-workbench-{{name}}
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/gmodzelewski/my-custom-workbench-manifests.git
+        targetRevision: main
+        path: charts/custom-workbench
+        helm:
+          releaseName: custom-workbench
+          valueFiles:
+            - values.yaml
+      destination:
+        server: "{{server}}"
+        namespace: redhat-ods-applications
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

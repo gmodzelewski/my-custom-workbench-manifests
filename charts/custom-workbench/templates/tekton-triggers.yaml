@@ -1,0 +1,112 @@
+{{- if and .Values.tekton.enabled .Values.tekton.eventListener.enabled }}
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: custom-workbench-github-binding
+  namespace: {{ include "custom-workbench.rhoaiNamespace" . }}
+  labels:
+    app: {{ .Values.rhoai.imageName }}
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  params:
+    - name: gitrevision
+      value: $(body.head_commit.id)
+    - name: gitrepositoryurl
+      value: $(body.repository.clone_url)
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: custom-workbench-github-template
+  namespace: {{ include "custom-workbench.rhoaiNamespace" . }}
+  labels:
+    app: {{ .Values.rhoai.imageName }}
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  params:
+    - name: gitrevision
+    - name: gitrepositoryurl
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: {{ .Values.tekton.pipelineName }}-
+        labels:
+          app: {{ .Values.rhoai.imageName }}
+          tekton.dev/pipeline: {{ .Values.tekton.pipelineName }}
+      spec:
+        pipelineRef:
+          name: {{ .Values.tekton.pipelineName }}
+        serviceAccountName: {{ .Values.tekton.serviceAccount }}
+        params:
+          - name: git-url
+            value: $(tt.params.gitrepositoryurl)
+          - name: git-revision
+            value: $(tt.params.gitrevision)
+        workspaces:
+          - name: shared-workspace
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: {{ .Values.tekton.workspaceStorage }}
+          - name: docker-credentials
+            secret:
+              secretName: {{ include "custom-workbench.secret.quay" . }}
+              items:
+                - key: .dockerconfigjson
+                  path: config.json
+          - name: git-credentials
+            secret:
+              secretName: {{ include "custom-workbench.secret.githubPat" . }}
+              items:
+                - key: username
+                  path: username
+                - key: password
+                  path: password
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: {{ .Values.tekton.pipelineName }}
+  namespace: {{ include "custom-workbench.rhoaiNamespace" . }}
+  labels:
+    app: {{ .Values.rhoai.imageName }}
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  serviceAccountName: {{ .Values.tekton.serviceAccount }}
+  triggers:
+    - name: github-push-main
+      bindings:
+        - ref: custom-workbench-github-binding
+      template:
+        ref: custom-workbench-github-template
+      interceptors:
+        - ref:
+            name: github
+            kind: ClusterInterceptor
+          params:
+            - name: secretRef
+              value:
+                secretName: {{ include "custom-workbench.secret.webhook" . }}
+                secretKey: WebHookSecretKey
+            - name: eventTypes
+              value:
+                - push
+        - ref:
+            name: cel
+            kind: ClusterInterceptor
+          params:
+            - name: filter
+              value: >-
+                body.ref == 'refs/heads/main'
+                && body.repository.clone_url == '{{ include "custom-workbench.sourceGitUrl" . }}'
+{{- end }}

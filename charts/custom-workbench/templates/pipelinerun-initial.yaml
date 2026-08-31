@@ -1,0 +1,45 @@
+{{- if and .Values.tekton.enabled .Values.tekton.runInitialPipeline }}
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: {{ .Values.tekton.pipelineName }}-initial
+  namespace: {{ include "custom-workbench.rhoaiNamespace" . }}
+  labels:
+    app: {{ .Values.rhoai.imageName }}
+    tekton.dev/pipeline: {{ .Values.tekton.pipelineName }}
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  pipelineRef:
+    name: {{ .Values.tekton.pipelineName }}
+  serviceAccountName: {{ .Values.tekton.serviceAccount }}
+  params:
+    - name: git-url
+      value: {{ include "custom-workbench.sourceGitUrl" . | quote }}
+    - name: git-revision
+      value: {{ .Values.global.sourceGitRevision | quote }}
+  workspaces:
+    - name: shared-workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: {{ .Values.tekton.workspaceStorage }}
+    - name: docker-credentials
+      secret:
+        secretName: {{ include "custom-workbench.secret.quay" . }}
+        items:
+          - key: .dockerconfigjson
+            path: config.json
+    - name: git-credentials
+      secret:
+        secretName: {{ include "custom-workbench.secret.githubPat" . }}
+        items:
+          - key: username
+            path: username
+          - key: password
+            path: password
+{{- end }}

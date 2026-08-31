@@ -1,0 +1,127 @@
+{{- if .Values.workbench.enabled }}
+apiVersion: kubeflow.org/v1
+kind: Notebook
+metadata:
+  name: {{ .Values.workbench.name }}
+  namespace: {{ include "custom-workbench.workbenchNamespace" . }}
+  labels:
+    app: {{ .Values.workbench.name }}
+    opendatahub.io/dashboard: "true"
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    notebooks.opendatahub.io/inject-oauth: "true"
+    notebooks.opendatahub.io/last-image-selection: {{ include "custom-workbench.imageSelection" . | quote }}
+    notebooks.opendatahub.io/last-image-version-git-commit-selection: {{ .Values.global.notebookBuildCommit | quote }}
+    opendatahub.io/image-display-name: {{ .Values.workbench.imageDisplayName | quote }}
+    opendatahub.io/hardware-profile-name: {{ .Values.workbench.hardwareProfile.name | quote }}
+    opendatahub.io/hardware-profile-namespace: {{ .Values.workbench.hardwareProfile.namespace | quote }}
+    openshift.io/display-name: {{ .Values.workbench.displayName | quote }}
+    openshift.io/description: {{ .Values.workbench.description | quote }}
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  template:
+    spec:
+      {{- if and .Values.workbench.gitCredentials.enabled }}
+      volumes:
+        - name: {{ .Values.workbench.name }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.workbench.name }}
+        - name: shm
+          emptyDir:
+            medium: Memory
+        - name: git-credentials
+          secret:
+            secretName: {{ include "custom-workbench.workbenchGitSecret" . }}
+            defaultMode: 0600
+      {{- else }}
+      volumes:
+        - name: {{ .Values.workbench.name }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.workbench.name }}
+        - name: shm
+          emptyDir:
+            medium: Memory
+      {{- end }}
+      {{- if .Values.workbench.cloneRepos.enabled }}
+      initContainers:
+        - name: clone-repos
+          image: {{ include "custom-workbench.internalWorkbenchImage" . }}
+          imagePullPolicy: Always
+          env:
+            - name: GIT_CONFIG_GLOBAL
+              value: /opt/app-root/src/.gitconfig
+          command:
+            - /bin/bash
+            - -lc
+            - |
+              set -euo pipefail
+              {{- range .Values.workbench.cloneRepos.repos }}
+              if [ ! -d /opt/app-root/src/{{ .dir }}/.git ]; then
+                git clone {{ include "custom-workbench.cloneRepoUrlFor" (dict "dir" .dir "url" .url "root" $) }} \
+                  /opt/app-root/src/{{ .dir }} || echo "git clone {{ .dir }} skipped"
+              else
+                echo "{{ .dir }} already cloned"
+              fi
+              {{- end }}
+          volumeMounts:
+            - mountPath: /opt/app-root/src
+              name: {{ .Values.workbench.name }}
+            {{- if .Values.workbench.gitCredentials.enabled }}
+            - mountPath: /opt/app-root/src/.git-credentials
+              name: git-credentials
+              subPath: .git-credentials
+              readOnly: true
+            - mountPath: /opt/app-root/src/.gitconfig
+              name: git-credentials
+              subPath: .gitconfig
+              readOnly: true
+            {{- end }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.workbench.name }}
+          image: {{ include "custom-workbench.internalWorkbenchImage" . }}
+          imagePullPolicy: Always
+          workingDir: /opt/app-root/src
+          env:
+            - name: NOTEBOOK_ARGS
+              value: |-
+                --ServerApp.port=8888
+                --ServerApp.token=''
+                --ServerApp.password=''
+                --ServerApp.base_url=/notebook/{{ .Values.workbench.namespace }}/{{ .Values.workbench.name }}
+                --ServerApp.quit_button=False
+            - name: JUPYTER_IMAGE
+              value: {{ include "custom-workbench.internalWorkbenchImage" . }}
+            {{- if .Values.workbench.gitCredentials.enabled }}
+            - name: GIT_CONFIG_GLOBAL
+              value: /opt/app-root/src/.gitconfig
+            {{- end }}
+          ports:
+            - containerPort: 8888
+              name: notebook-port
+              protocol: TCP
+          resources:
+            limits:
+              cpu: {{ .Values.workbench.resources.limits.cpu | quote }}
+              memory: {{ .Values.workbench.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.workbench.resources.requests.cpu | quote }}
+              memory: {{ .Values.workbench.resources.requests.memory }}
+          volumeMounts:
+            - mountPath: /opt/app-root/src
+              name: {{ .Values.workbench.name }}
+            - mountPath: /dev/shm
+              name: shm
+            {{- if .Values.workbench.gitCredentials.enabled }}
+            - mountPath: /opt/app-root/src/.git-credentials
+              name: git-credentials
+              subPath: .git-credentials
+              readOnly: true
+            - mountPath: /opt/app-root/src/.gitconfig
+              name: git-credentials
+              subPath: .gitconfig
+              readOnly: true
+            {{- end }}
+      enableServiceLinks: false
+      serviceAccountName: {{ .Values.workbench.name }}
+{{- end }}

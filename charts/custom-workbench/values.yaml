@@ -1,0 +1,86 @@
+# Default values for custom-workbench.
+# For lab secrets, copy values-lab.yaml.example to values-lab.yaml (gitignored).
+#
+# global.sourceGitUrl  — image source repo (Tekton clones this to build Containerfiles)
+# global.manifestsGitUrl — this repo (Argo CD + pipeline update-gitops target)
+
+global:
+  sourceGitUrl: https://github.com/gmodzelewski/my-custom-workbench.git
+  manifestsGitUrl: https://github.com/gmodzelewski/my-custom-workbench-manifests.git
+  sourceGitRevision: main
+  manifestsGitRevision: main
+  imageTag: "0b3afca"
+  notebookBuildCommit: "0b3afca"
+  quayOrg: modzelewski
+
+rhoai:
+  namespace: redhat-ods-applications
+  imageName: custom-workbench-opencode
+  runtimeImageName: custom-workbench-opencode-runtime
+  imageDisplayName: "Custom workbench (OpenCode)"
+  imageDescription: >-
+    Jupyter Data Science workbench with the OpenCode AI coding agent CLI
+    available in the terminal.
+  workbenchBaseImage: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:3.4
+  runtimeBaseImage: registry.redhat.io/rhoai/odh-pipeline-runtime-datascience-cpu-py312-rhel9@sha256:175cae5e7070f704b8649a9060e9739b0d99b0d029e1f8253c6585da80e7eb93
+
+tekton:
+  enabled: true
+  pipelineName: custom-workbench-opencode
+  serviceAccount: custom-workbench-pipeline
+  workspaceStorage: 2Gi
+  eventListener:
+    enabled: true
+    route:
+      enabled: true
+      name: el-custom-workbench-opencode
+  runInitialPipeline: false
+  buildRuntime: true
+
+workbench:
+  enabled: true
+  namespace: custom-workbench-demo
+  name: custom-workbench-demo
+  displayName: custom-workbench-demo
+  description: Demo workbench with OpenCode CLI
+  imageDisplayName: Custom workbench (OpenCode)
+  pvc:
+    storage: 20Gi
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  hardwareProfile:
+    name: default-profile
+    namespace: redhat-ods-applications
+  cloneRepos:
+    enabled: true
+    repos:
+      - dir: my-custom-workbench
+        url: ""
+      - dir: my-custom-workbench-manifests
+        url: ""
+  gitCredentials:
+    enabled: true
+    secretName: workbench-git-credentials
+    gitHost: github.com
+    # Username for HTTPS git push; defaults to secrets.github.patUsername when secrets.create=true
+    username: "gmodzelewski"
+
+# Lab/demo only — do NOT commit real credentials. Use values-lab.yaml locally.
+secrets:
+  create: false
+  quay:
+    name: quay-push-credentials
+    server: quay.io
+    username: ""
+    password: ""
+  github:
+    patName: github-pat
+    patUsername: git
+    pat: ""
+    webhookSecretName: github-webhook-secret
+    webhookSecret: ""

@@ -1,0 +1,12 @@
+{{- if .Values.workbench.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "custom-workbench.workbenchNamespace" . }}
+  labels:
+    opendatahub.io/dashboard: "true"
+    kubernetes.io/metadata.name: {{ include "custom-workbench.workbenchNamespace" . }}
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+{{- end }}

@@ -1,0 +1,5 @@
+charts/custom-workbench/values-lab.yaml
+pipelines/verify-opencode-runtime.yaml
+.venv-slides/
+__pycache__/
+*.pyc

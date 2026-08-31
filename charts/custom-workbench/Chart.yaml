@@ -1,0 +1,6 @@
+apiVersion: v2
+name: custom-workbench
+description: RHOAI custom workbench image registration, Tekton CI, and demo Notebook
+type: application
+version: 0.1.0
+appVersion: "1.0"

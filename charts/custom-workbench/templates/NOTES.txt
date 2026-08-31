@@ -1,0 +1,52 @@
+Custom workbench Helm chart installed.
+
+Release: {{ .Release.Name }}
+Namespace (RHOAI): {{ include "custom-workbench.rhoaiNamespace" . }}
+Workbench namespace: {{ include "custom-workbench.workbenchNamespace" . }}
+
+Image tag: {{ include "custom-workbench.imageTag" . }}
+Quay workbench image: {{ include "custom-workbench.quayWorkbenchImage" . }}
+
+{{- if .Values.tekton.enabled }}
+
+Tekton pipeline: {{ .Values.tekton.pipelineName }} (namespace {{ include "custom-workbench.rhoaiNamespace" . }})
+
+{{- if .Values.tekton.eventListener.enabled }}
+
+Configure GitHub webhook to the EventListener Route:
+  oc get route {{ .Values.tekton.eventListener.route.name }} -n {{ include "custom-workbench.rhoaiNamespace" . }} -o jsonpath='https://{.spec.host}{"\n"}'
+
+Webhook secret key: WebHookSecretKey (secret {{ include "custom-workbench.secret.webhook" . }})
+
+{{- end }}
+
+Manual pipeline run:
+  oc create -f manifests/ci/tekton/pipelinerun-manual.yaml
+  # or set tekton.runInitialPipeline=true and upgrade the release
+
+{{- end }}
+
+{{- if .Values.workbench.enabled }}
+
+Open the workbench in OpenShift AI:
+  Project: {{ include "custom-workbench.workbenchNamespace" . }}
+  Workbench: {{ .Values.workbench.name }}
+
+{{- end }}
+
+{{- if not .Values.secrets.create }}
+
+WARNING: secrets.create is false. Create these secrets before the pipeline can run:
+  - {{ include "custom-workbench.secret.quay" . }} (docker-registry)
+  - {{ include "custom-workbench.secret.githubPat" . }} (basic-auth)
+  - {{ include "custom-workbench.secret.webhook" . }} (WebHookSecretKey)
+
+For lab use: copy values-lab.yaml.example to values-lab.yaml and set secrets.create=true.
+
+{{- else }}
+
+WARNING: secrets were created from Helm values. Do not commit real credentials to Git.
+
+{{- end }}
+
+After the first successful pipeline run, stop/start the workbench to pick up the new image digest.

@@ -1,0 +1,54 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: {{ .Values.rhoai.imageName }}
+  namespace: {{ include "custom-workbench.rhoaiNamespace" . }}
+  labels:
+    component.opendatahub.io/name: jupyterhub
+    opendatahub.io/component: "true"
+    opendatahub.io/notebook-image: "true"
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    opendatahub.io/notebook-image-name: {{ .Values.rhoai.imageDisplayName | quote }}
+    opendatahub.io/notebook-image-desc: {{ .Values.rhoai.imageDescription | quote }}
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ .Values.global.imageTag | quote }}
+      from:
+        kind: DockerImage
+        name: {{ include "custom-workbench.quayWorkbenchImage" . }}
+      importPolicy:
+        importMode: Legacy
+      referencePolicy:
+        type: Local
+      annotations:
+        opendatahub.io/workbench-image-recommended: "true"
+        opendatahub.io/notebook-build-commit: {{ .Values.global.notebookBuildCommit | quote }}
+        opendatahub.io/notebook-software: '[{"name":"Python","version":"v3.12"},{"name":"OpenCode","version":"latest"}]'
+        opendatahub.io/notebook-python-dependencies: '[{"name":"JupyterLab","version":"4.5"},{"name":"Boto3","version":"1.42"},{"name":"Kafka-Python-ng","version":"2.2"},{"name":"Kfp","version":"2.16"},{"name":"Matplotlib","version":"3.10"},{"name":"Numpy","version":"2.4"},{"name":"Pandas","version":"2.3"},{"name":"Scikit-learn","version":"1.8"},{"name":"Scipy","version":"1.17"},{"name":"Odh-Elyra","version":"5.0"},{"name":"PyMongo","version":"4.16"},{"name":"Pyodbc","version":"5.3"},{"name":"Codeflare-SDK","version":"0.36"},{"name":"Feast","version":"0.62"},{"name":"Sklearn-onnx","version":"1.20"},{"name":"Psycopg","version":"3.3"},{"name":"MySQL Connector/Python","version":"9.6"},{"name":"Kubeflow-Training","version":"1.9"},{"name":"MLflow","version":"3.10"}]'
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: {{ .Values.rhoai.runtimeImageName }}
+  namespace: {{ include "custom-workbench.rhoaiNamespace" . }}
+  labels:
+    opendatahub.io/component: "true"
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+    - name: {{ .Values.global.imageTag | quote }}
+      from:
+        kind: DockerImage
+        name: {{ include "custom-workbench.quayRuntimeImage" . }}
+      importPolicy:
+        importMode: Legacy
+      referencePolicy:
+        type: Local
