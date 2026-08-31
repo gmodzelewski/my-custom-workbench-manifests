@@ -62,9 +62,9 @@ spec:
               set -eu
               rev="$(params.git-revision)"
               echo -n "$(echo "$rev" | cut -c1-7)" > "$(results.image-tag.path)"
-        params:
-          - name: git-revision
-            value: $(params.git-revision)
+      params:
+        - name: git-revision
+          value: $(params.git-revision)
 
     - name: fetch-repository
       runAfter:

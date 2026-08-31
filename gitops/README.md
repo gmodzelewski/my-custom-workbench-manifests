@@ -23,11 +23,16 @@ Image source code lives in **[my-custom-workbench](https://github.com/gmodzelews
    oc apply -f gitops/applicationset.yaml
    ```
 
-3. Confirm the Application in the Argo CD UI or:
+3. Confirm in the Argo CD UI or with `oc`:
 
    ```bash
-   oc get applications -n openshift-gitops | grep custom-workbench
+   oc get applicationsets.argoproj.io -n openshift-gitops
+   oc get applications.argoproj.io -n openshift-gitops
    ```
+
+   **Where to look in the UI:** Open the **Cluster Argo CD** console link (OpenShift GitOps → Argo CD). The ApplicationSet controller creates an **Application** named `custom-workbench-in-cluster` — look under **Applications** in the left sidebar. ApplicationSets appear under **Settings → ApplicationSets** (not in the main Applications list).
+
+   **RBAC note:** OpenShift GitOps defaults to `cluster-admins` only for the Argo CD `admin` role. Other users need entries in the `argocd-rbac-cm` ConfigMap in `openshift-gitops` to view or sync applications.
 
 The chart deploys resources into multiple namespaces (`redhat-ods-applications`, `custom-workbench-demo`).
 
