@@ -38,7 +38,6 @@ spec:
           jqPathExpressions:
             - .spec.template.spec.containers
             - .spec.template.spec.volumes
-            - .spec.template.metadata
             - .metadata.annotations
             - .metadata.finalizers
             - .metadata.labels

@@ -26,6 +26,12 @@ spec:
         io.kubernetes.cri-o.Devices: /dev/fuse
     {{- end }}
     spec:
+      {{- if .Values.workbench.podman.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.workbench.podman.runAsUser }}
+        fsGroup: 0
+        runAsNonRoot: true
+      {{- end }}
       volumes:
         - name: {{ .Values.workbench.name }}
           persistentVolumeClaim:

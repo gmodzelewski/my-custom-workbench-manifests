@@ -1,0 +1,48 @@
+{{- if and .Values.workbench.enabled .Values.workbench.podman.enabled .Values.workbench.podman.createScc }}
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: {{ .Values.workbench.podman.sccName }}
+  annotations:
+    kubernetes.io/description: >-
+      Allows rootless podman/buildah in the custom workbench (UID 1001,
+      user namespaces, privilege escalation for newuidmap).
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: true
+allowPrivilegedContainer: false
+allowedCapabilities: null
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+groups: []
+priority: {{ .Values.workbench.podman.sccPriority }}
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+  - KILL
+  - MKNOD
+runAsUser:
+  type: MustRunAs
+  uid: {{ .Values.workbench.podman.runAsUser }}
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: RunAsAny
+users: []
+volumes:
+  - configMap
+  - csi
+  - downwardAPI
+  - emptyDir
+  - ephemeral
+  - image
+  - persistentVolumeClaim
+  - projected
+  - secret
+{{- end }}
