@@ -36,6 +36,12 @@ Image source code lives in **[my-custom-workbench](https://github.com/gmodzelews
 
 The chart deploys resources into multiple namespaces (`redhat-ods-applications`, `custom-workbench-demo`).
 
+**Multi-namespace RBAC:** OpenShift GitOps grants the application controller `admin` in the Application **destination** namespace (`redhat-ods-applications`) automatically. For the workbench namespace (`custom-workbench-demo`), the chart labels the Namespace with `argocd.argoproj.io/managed-by: openshift-gitops` so the GitOps operator creates the required RoleBinding. If the namespace already exists without that label:
+
+```bash
+oc label namespace custom-workbench-demo argocd.argoproj.io/managed-by=openshift-gitops --overwrite
+```
+
 ## Secrets (lab vs production)
 
 By default `secrets.create: false` in `charts/custom-workbench/values.yaml`. Create secrets manually before the Tekton pipeline can run:

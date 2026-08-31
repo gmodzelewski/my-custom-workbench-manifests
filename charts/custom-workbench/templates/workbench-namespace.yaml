@@ -6,6 +6,7 @@ metadata:
   labels:
     opendatahub.io/dashboard: "true"
     kubernetes.io/metadata.name: {{ include "custom-workbench.workbenchNamespace" . }}
+    argocd.argoproj.io/managed-by: openshift-gitops
     {{- include "custom-workbench.labels" . | nindent 4 }}
   annotations:
     argocd.argoproj.io/sync-wave: "0"
