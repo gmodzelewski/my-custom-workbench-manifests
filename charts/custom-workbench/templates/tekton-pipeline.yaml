@@ -254,6 +254,7 @@ spec:
               cd "${MANIFESTS_DIR}"
               test -e .git
               git config --global --add safe.directory "${MANIFESTS_DIR}"
+              git checkout -B main
               IMAGE_TAG="$(params.image-tag)"
               GIT_REV="$(params.git-revision)"
               VALUES="charts/custom-workbench/values.yaml"
