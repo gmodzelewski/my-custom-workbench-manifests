@@ -20,6 +20,11 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
 spec:
   template:
+    {{- if and .Values.workbench.podman.enabled .Values.workbench.podman.fuseDevice }}
+    metadata:
+      annotations:
+        io.kubernetes.cri-o.Devices: /dev/fuse
+    {{- end }}
     spec:
       {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
       volumes:
@@ -86,6 +91,10 @@ spec:
           imagePullPolicy: Always
           workingDir: /opt/app-root/src
           env:
+            {{- if .Values.workbench.podman.enabled }}
+            - name: CONTAINERS_STORAGE_CONF
+              value: /etc/containers/workbench-storage.conf
+            {{- end }}
             - name: NOTEBOOK_ARGS
               value: |-
                 --ServerApp.port=8888

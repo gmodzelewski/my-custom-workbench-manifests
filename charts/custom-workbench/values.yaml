@@ -63,6 +63,11 @@ workbench:
         url: ""
       - dir: my-custom-workbench-manifests
         url: ""
+  podman:
+    enabled: true
+    fuseDevice: true
+    # OpenShift ClusterRole for SCC binding (system:openshift:scc:<name>)
+    sccClusterRole: system:openshift:scc:nonroot-v2
   gitCredentials:
     enabled: true
     # Mount workbench-git-credentials (create via scripts/bootstrap-workbench-git-credentials.sh)
