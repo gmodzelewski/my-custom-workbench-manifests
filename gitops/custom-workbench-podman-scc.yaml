@@ -1,15 +1,13 @@
-{{- if and .Values.workbench.enabled .Values.workbench.podman.enabled .Values.workbench.podman.createScc }}
+# Cluster-admin bootstrap only — NOT managed by Argo CD (no cluster-scoped patch RBAC).
+# Apply: ./scripts/bootstrap-workbench-podman-scc.sh
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
-  name: {{ .Values.workbench.podman.sccName }}
+  name: custom-workbench-podman
   annotations:
     kubernetes.io/description: >-
       Allows rootless podman/buildah in the custom workbench (UID 1001,
       user namespaces, privilege escalation for newuidmap).
-    argocd.argoproj.io/sync-wave: "-1"
-  labels:
-    {{- include "custom-workbench.labels" . | nindent 4 }}
 allowHostDirVolumePlugin: false
 allowHostIPC: false
 allowHostNetwork: false
@@ -22,14 +20,14 @@ defaultAddCapabilities: null
 fsGroup:
   type: RunAsAny
 groups: []
-priority: {{ .Values.workbench.podman.sccPriority }}
+priority: 10
 readOnlyRootFilesystem: false
 requiredDropCapabilities:
   - KILL
   - MKNOD
 runAsUser:
   type: MustRunAs
-  uid: {{ .Values.workbench.podman.runAsUser }}
+  uid: 1001
 seLinuxContext:
   type: MustRunAs
 supplementalGroups:
@@ -45,4 +43,3 @@ volumes:
   - persistentVolumeClaim
   - projected
   - secret
-{{- end }}

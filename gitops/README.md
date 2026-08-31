@@ -92,28 +92,15 @@ After bootstrap, restart the workbench if it was already running so the pod moun
 
 ## Workbench Podman (cluster-admin, one-time)
 
-Rootless `podman build` / `podman run` in the workbench need more than the default restricted SCC. The chart can bind the workbench ServiceAccount to an SCC when `workbench.podman.enabled: true` (default). Verify your cluster has a suitable SCC:
+Rootless `podman build` / `podman run` need SCC **`custom-workbench-podman`** (UID **1001**). The SCC is **cluster-scoped** — Argo CD cannot create or patch it. Run once as cluster-admin:
 
 ```bash
-oc get scc | rg -i 'podman|nonroot|anyuid'
+./scripts/bootstrap-workbench-podman-scc.sh
 ```
 
-Default chart value: `workbench.podman.sccClusterRole: system:openshift:scc:custom-workbench-podman` (SCC created by the chart when `workbench.podman.createScc: true`). The workbench pod must run as **UID 1001** (`runAsUser` in the Notebook spec) — not the random UID from `restricted-v2`.
+This applies `gitops/custom-workbench-podman-scc.yaml` and grants the SCC to the workbench ServiceAccount (`oc adm policy add-scc-to-user`). Custom SCCs do not get a `system:openshift:scc:*` ClusterRole, so a RoleBinding does not work.
 
-If you previously bound `nonroot-v2`, delete the RoleBinding once (roleRef is immutable) before syncing:
-
-```bash
-oc delete rolebinding custom-workbench-demo-podman-scc -n custom-workbench-demo
-oc apply -f gitops/applicationset.yaml   # or sync in Argo CD
-```
-
-Restart the workbench from the RHOAI dashboard after sync so the pod picks up the new SCC and UID.
-
-```bash
-oc get rolebinding custom-workbench-demo-podman-scc -n custom-workbench-demo
-```
-
-Then restart the workbench and verify in the Jupyter terminal:
+The Notebook spec sets `runAsUser` / `fsGroup` **1001**. Restart the workbench from the RHOAI dashboard after bootstrap.
 
 ```bash
 podman --version

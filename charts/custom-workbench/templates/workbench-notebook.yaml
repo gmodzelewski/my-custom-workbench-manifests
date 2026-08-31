@@ -29,7 +29,7 @@ spec:
       {{- if .Values.workbench.podman.enabled }}
       securityContext:
         runAsUser: {{ .Values.workbench.podman.runAsUser }}
-        fsGroup: 0
+        fsGroup: {{ .Values.workbench.podman.runAsUser }}
         runAsNonRoot: true
       {{- end }}
       volumes:
@@ -66,6 +66,7 @@ spec:
               set -euo pipefail
               {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
               mkdir -p /opt/app-root/src/.local
+              rm -f /opt/app-root/src/.local/.git-credentials /opt/app-root/src/.gitconfig
               printf '%s' "${WORKBENCH_GIT_CREDENTIALS}" > /opt/app-root/src/.local/.git-credentials
               printf '%s' "${WORKBENCH_GITCONFIG}" > /opt/app-root/src/.gitconfig
               chmod 600 /opt/app-root/src/.local/.git-credentials /opt/app-root/src/.gitconfig

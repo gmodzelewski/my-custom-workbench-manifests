@@ -66,11 +66,10 @@ workbench:
   podman:
     enabled: true
     fuseDevice: true
-    createScc: true
+    # SCC is cluster-scoped — apply via scripts/bootstrap-workbench-podman-scc.sh (cluster-admin)
+    createScc: false
     sccName: custom-workbench-podman
-    sccPriority: 10
     runAsUser: 1001
-    sccClusterRole: system:openshift:scc:custom-workbench-podman
   gitCredentials:
     enabled: true
     # Mount workbench-git-credentials (create via scripts/bootstrap-workbench-git-credentials.sh)
