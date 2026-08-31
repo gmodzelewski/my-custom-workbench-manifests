@@ -241,15 +241,18 @@ spec:
           - name: manifests-git-url
             type: string
         workspaces:
-          - name: source
+          - name: output
           - name: git-credentials
         steps:
           - name: commit-and-push
             image: docker.io/alpine/git:2.47.1
-            workingDir: $(workspaces.source.path)/manifests-gitops
+            workingDir: $(workspaces.output.path)/manifests-gitops
             script: |
               #!/bin/sh
               set -eu
+              MANIFESTS_DIR="$(workspaces.output.path)/manifests-gitops"
+              cd "${MANIFESTS_DIR}"
+              test -e .git
               IMAGE_TAG="$(params.image-tag)"
               GIT_REV="$(params.git-revision)"
               VALUES="charts/custom-workbench/values.yaml"
@@ -269,7 +272,7 @@ spec:
               git commit -m "ci: deploy image ${IMAGE_TAG} from source ${GIT_REV}"
               git push origin main
       workspaces:
-        - name: source
+        - name: output
           workspace: shared-workspace
         - name: git-credentials
           workspace: git-credentials

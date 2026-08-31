@@ -36,10 +36,13 @@ decode_dockerconfig "${QUAY_SECRET}"
 decode_dockerconfig "${INTERNAL_REGISTRY_SECRET}"
 decode_dockerconfig "${REDHAT_REGISTRY_SECRET}"
 
-jq -s '{auths: (map(.auths) | add)}' \
-  "${TMPDIR}/${QUAY_SECRET}.json" \
+jq -s '
+  .[0] as $internal | .[1] as $redhat | .[2] as $quay |
+  {auths: ($internal.auths * $redhat.auths * $quay.auths)}
+' \
   "${TMPDIR}/${INTERNAL_REGISTRY_SECRET}.json" \
-  "${TMPDIR}/${REDHAT_REGISTRY_SECRET}.json" >"${TMPDIR}/merged.json"
+  "${TMPDIR}/${REDHAT_REGISTRY_SECRET}.json" \
+  "${TMPDIR}/${QUAY_SECRET}.json" >"${TMPDIR}/merged.json"
 
 oc create secret generic "${TEKTON_DOCKER_CONFIG_SECRET}" \
   --from-file=.dockerconfigjson="${TMPDIR}/merged.json" \
