@@ -98,6 +98,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- .Values.workbench.gitCredentials.secretName }}
 {{- end }}
 
+{{- define "custom-workbench.workbenchGitSecretEnabled" -}}
+{{- if and .Values.workbench.gitCredentials.enabled (or .Values.secrets.create .Values.workbench.gitCredentials.createSecret) -}}true{{- end -}}
+{{- end }}
+
 {{- define "custom-workbench.imageSelection" -}}
 {{- printf "%s:%s" .Values.rhoai.imageName (include "custom-workbench.imageTag" .) }}
 {{- end }}

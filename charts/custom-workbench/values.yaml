@@ -9,8 +9,8 @@ global:
   manifestsGitUrl: https://github.com/gmodzelewski/my-custom-workbench-manifests.git
   sourceGitRevision: main
   manifestsGitRevision: main
-  imageTag: "0b3afca"
-  notebookBuildCommit: "0b3afca"
+  imageTag: "1.0"
+  notebookBuildCommit: "1.0"
   quayOrg: modzelewski
 
 rhoai:
@@ -65,6 +65,8 @@ workbench:
         url: ""
   gitCredentials:
     enabled: true
+    # Set true with secrets.create in values-lab.yaml, or create the secret manually
+    createSecret: false
     secretName: workbench-git-credentials
     gitHost: github.com
     # Username for HTTPS git push; defaults to secrets.github.patUsername when secrets.create=true

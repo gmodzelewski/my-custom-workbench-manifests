@@ -21,7 +21,7 @@ metadata:
 spec:
   template:
     spec:
-      {{- if and .Values.workbench.gitCredentials.enabled }}
+      {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
       volumes:
         - name: {{ .Values.workbench.name }}
           persistentVolumeClaim:
@@ -47,9 +47,11 @@ spec:
         - name: clone-repos
           image: {{ include "custom-workbench.internalWorkbenchImage" . }}
           imagePullPolicy: Always
+          {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
           env:
             - name: GIT_CONFIG_GLOBAL
               value: /opt/app-root/src/.gitconfig
+          {{- end }}
           command:
             - /bin/bash
             - -lc
@@ -66,7 +68,7 @@ spec:
           volumeMounts:
             - mountPath: /opt/app-root/src
               name: {{ .Values.workbench.name }}
-            {{- if .Values.workbench.gitCredentials.enabled }}
+            {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
             - mountPath: /opt/app-root/src/.git-credentials
               name: git-credentials
               subPath: .git-credentials
@@ -92,7 +94,7 @@ spec:
                 --ServerApp.quit_button=False
             - name: JUPYTER_IMAGE
               value: {{ include "custom-workbench.internalWorkbenchImage" . }}
-            {{- if .Values.workbench.gitCredentials.enabled }}
+            {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
             - name: GIT_CONFIG_GLOBAL
               value: /opt/app-root/src/.gitconfig
             {{- end }}
@@ -112,7 +114,7 @@ spec:
               name: {{ .Values.workbench.name }}
             - mountPath: /dev/shm
               name: shm
-            {{- if .Values.workbench.gitCredentials.enabled }}
+            {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
             - mountPath: /opt/app-root/src/.git-credentials
               name: git-credentials
               subPath: .git-credentials
