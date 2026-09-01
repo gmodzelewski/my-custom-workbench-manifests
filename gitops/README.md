@@ -94,9 +94,13 @@ oc create secret generic github-webhook-secret \
 
 After bootstrap, restart the workbench if it was already running so the pod mounts the secret.
 
+The clone-repos init writes credentials, then clones `my-custom-workbench` and `my-custom-workbench-manifests` onto the PVC. A leftover directory **without** `.git` is removed and replaced (those two folders only). Existing clones are `git pull --ff-only`. Jupyter home `/opt/app-root/src` is not itself a git repo.
+
 ## Workbench Podman (cluster-admin, one-time)
 
-Rootless `podman build` / `podman run` need SCC **`custom-workbench-podman`** (UID **1001**, `SETUID`/`SETGID` only). The SCC is **cluster-scoped** — Argo CD cannot create or patch it. Run once as cluster-admin:
+OpenShift sets the **pod UID** (Notebook `runAsUser: 1001` + this SCC). It does **not** write `/etc/subuid`. Nested rootless Podman would need that file plus `newuidmap`; the workbench image instead uses **`userns=host`** and `BUILDAH_ISOLATION=chroot` so Podman never calls `newuidmap`.
+
+Grant SCC **`custom-workbench-podman`** (UID **1001**). The SCC is **cluster-scoped** — Argo CD cannot create or patch it. Run once as cluster-admin:
 
 ```bash
 ./scripts/bootstrap-workbench-podman-scc.sh
@@ -104,7 +108,9 @@ Rootless `podman build` / `podman run` need SCC **`custom-workbench-podman`** (U
 
 This applies `gitops/custom-workbench-podman-scc.yaml` and grants the SCC to the workbench ServiceAccount (`oc adm policy add-scc-to-user`). Custom SCCs do not get a `system:openshift:scc:*` ClusterRole, so a RoleBinding does not work.
 
-**Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false` on the notebook container. The SCC allows `SETUID`/`SETGID` (minimum for rootless Podman user namespaces) and SCC-level `allowPrivilegeEscalation: true` for `newuidmap`. Storage uses **`vfs`** on the PVC — no `/dev/fuse` or overlay mounts. **Tekton remains the production build path**; in-workbench Podman is debug-only.
+**Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false` on the notebook container. Storage uses **`vfs`** on the PVC. **Tekton remains the production build path**; in-workbench Podman is debug-only.
+
+`SETUID`/`SETGID` on the SCC are unused with `userns=host`. Dropping them (and possibly `allowPrivilegeEscalation` at SCC level) is a follow-up; do it as cluster-admin after the new image is deployed and in-workbench `podman build` still works.
 
 The Notebook spec sets `runAsUser` / `fsGroup` **1001** (`fsGroupChangePolicy: OnRootMismatch`). Restart the workbench from the RHOAI dashboard after bootstrap.
 
@@ -126,7 +132,7 @@ export REGISTRY_AUTH_FILE=~/.config/containers/auth.json
 
 ```bash
 podman --version
-podman info | rg -i 'graphRoot|driver'
+podman info | rg -i 'graphRoot|driver|userns'
 cd /opt/app-root/src/my-custom-workbench
 podman build -t localhost/custom-workbench:debug -f Containerfile .
 podman run --rm localhost/custom-workbench:debug opencode --version

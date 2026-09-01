@@ -100,11 +100,15 @@ spec:
               chmod 600 /opt/app-root/src/.local/.git-credentials /opt/app-root/src/.gitconfig
               {{- end }}
               {{- range .Values.workbench.cloneRepos.repos }}
-              if [ ! -d /opt/app-root/src/{{ .dir }}/.git ]; then
+              DEST="/opt/app-root/src/{{ .dir }}"
+              if [ ! -d "${DEST}/.git" ]; then
+                echo "Cloning {{ .dir }} (no .git present; replacing leftover tree)"
+                rm -rf "${DEST}"
                 git clone {{ include "custom-workbench.cloneRepoUrlFor" (dict "dir" .dir "url" .url "root" $) }} \
-                  /opt/app-root/src/{{ .dir }} || echo "git clone {{ .dir }} skipped"
+                  "${DEST}" || echo "git clone {{ .dir }} skipped"
               else
-                echo "{{ .dir }} already cloned"
+                echo "Updating {{ .dir }}"
+                git -C "${DEST}" pull --ff-only || echo "{{ .dir }} pull skipped"
               fi
               {{- end }}
           volumeMounts:

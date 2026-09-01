@@ -1,4 +1,8 @@
-# Cluster-admin bootstrap only — NOT managed by Argo CD (no cluster-scoped patch RBAC).
+# Minimum SCC for in-workbench podman/buildah (UID 1001).
+# The workbench image uses userns=host + BUILDAH_ISOLATION=chroot, so nested
+# user namespaces (newuidmap / /etc/subuid) are not required.
+# SETUID/SETGID and SCC-level allowPrivilegeEscalation are leftover for that
+# unused nested-userns path and can be dropped as a follow-up.
 # Apply: ./scripts/bootstrap-workbench-podman-scc.sh
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
@@ -6,10 +10,9 @@ metadata:
   name: custom-workbench-podman
   annotations:
     kubernetes.io/description: >-
-      Minimum OpenShift SCC for rootless podman/buildah in the custom workbench
-      (UID 1001, user namespaces). Allows SETUID/SETGID only; no privileged
-      containers or host access. SCC-level allowPrivilegeEscalation is required
-      for newuidmap; the workbench container sets allowPrivilegeEscalation false.
+      Workbench Podman (UID 1001). Image default is userns=host + chroot;
+      SETUID/SETGID remain until a follow-up drops nested-userns leftovers.
+      No privileged containers or host access.
 allowHostDirVolumePlugin: false
 allowHostIPC: false
 allowHostNetwork: false

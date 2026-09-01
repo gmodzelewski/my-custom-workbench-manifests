@@ -11,7 +11,7 @@ Image source code (Containerfiles) lives in the companion repo **[my-custom-work
 | [my-custom-workbench](https://github.com/gmodzelewski/my-custom-workbench) | `Containerfile`, `Containerfile.runtime`, `demo/sample-app/` |
 | **this repo** | Helm chart, Argo CD ApplicationSet, Tekton pipeline, scripts, slides |
 
-At workbench start, both repos are cloned to `/opt/app-root/src/my-custom-workbench` and `/opt/app-root/src/my-custom-workbench-manifests`.
+At workbench start, both repos are cloned to `/opt/app-root/src/my-custom-workbench` and `/opt/app-root/src/my-custom-workbench-manifests`. Directories without `.git` are replaced; existing clones are fast-forwarded. The Jupyter home (`/opt/app-root/src`) itself is not a git repo — pull from inside those folders.
 
 ## Demo workflow (GitOps loop)
 
