@@ -108,7 +108,14 @@ Grant SCC **`custom-workbench-podman`** (UID **1001**). The SCC is **cluster-sco
 
 This applies `gitops/custom-workbench-podman-scc.yaml` and grants the SCC to the workbench ServiceAccount (`oc adm policy add-scc-to-user`). Custom SCCs do not get a `system:openshift:scc:*` ClusterRole, so a RoleBinding does not work.
 
-**Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false` on the notebook container. The container adds **`SETUID`/`SETGID`** so Buildah chroot isolation can call `setgroups()` on `RUN` (Podman 5.8.2; Buildah 1.45 skips this when the namespace denies it). Storage uses **`vfs`** on the PVC. **Tekton remains the production build path**; in-workbench Podman is debug-only.
+**Security model:** The workbench pod runs as non-root UID **1001**. `allowPrivilegeEscalation` is **true** so file capabilities on `/usr/bin/podman` (`SETUID`/`SETGID`) can apply — CRI-O leaves `CapEff` empty for UID 1001, and Buildah chroot `RUN` calls `setgroups()` (Podman 5.8.2). Storage uses **`vfs`** on the PVC. **Tekton remains the production build path**; in-workbench Podman is debug-only.
+
+Argo `ignoreDifferences` on Notebook `containers` means Helm `securityContext` is not applied after the first create. After changing it, run:
+
+```bash
+./scripts/patch-workbench-notebook-podman.sh
+oc delete pod -l notebook-name=custom-workbench-demo -n custom-workbench-demo
+```
 
 The Notebook spec sets `runAsUser` / `fsGroup` **1001** (`fsGroupChangePolicy: OnRootMismatch`). Restart the workbench from the RHOAI dashboard after bootstrap.
 

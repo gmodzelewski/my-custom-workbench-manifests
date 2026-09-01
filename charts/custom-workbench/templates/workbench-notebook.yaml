@@ -136,12 +136,11 @@ spec:
           workingDir: /opt/app-root/src
           {{- if .Values.workbench.podman.enabled }}
           securityContext:
-            allowPrivilegeEscalation: false
+            # no_new_privs must be off so file caps on /usr/bin/podman (SETGID)
+            # apply. CRI-O does not put capabilities.add into CapEff for UID 1001.
+            allowPrivilegeEscalation: true
             capabilities:
               add:
-                # Podman 5.8 / Buildah <1.45 chroot isolation calls setgroups()
-                # before every RUN. Without these, even `RUN echo hi` fails with
-                # "error setting supplemental groups list: operation not permitted".
                 - SETUID
                 - SETGID
           {{- end }}
