@@ -108,9 +108,7 @@ Grant SCC **`custom-workbench-podman`** (UID **1001**). The SCC is **cluster-sco
 
 This applies `gitops/custom-workbench-podman-scc.yaml` and grants the SCC to the workbench ServiceAccount (`oc adm policy add-scc-to-user`). Custom SCCs do not get a `system:openshift:scc:*` ClusterRole, so a RoleBinding does not work.
 
-**Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false` on the notebook container. Storage uses **`vfs`** on the PVC. **Tekton remains the production build path**; in-workbench Podman is debug-only.
-
-`SETUID`/`SETGID` on the SCC are unused with `userns=host`. Dropping them (and possibly `allowPrivilegeEscalation` at SCC level) is a follow-up; do it as cluster-admin after the new image is deployed and in-workbench `podman build` still works.
+**Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false` on the notebook container. The container adds **`SETUID`/`SETGID`** so Buildah chroot isolation can call `setgroups()` on `RUN` (Podman 5.8.2; Buildah 1.45 skips this when the namespace denies it). Storage uses **`vfs`** on the PVC. **Tekton remains the production build path**; in-workbench Podman is debug-only.
 
 The Notebook spec sets `runAsUser` / `fsGroup` **1001** (`fsGroupChangePolicy: OnRootMismatch`). Restart the workbench from the RHOAI dashboard after bootstrap.
 

@@ -137,6 +137,13 @@ spec:
           {{- if .Values.workbench.podman.enabled }}
           securityContext:
             allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                # Podman 5.8 / Buildah <1.45 chroot isolation calls setgroups()
+                # before every RUN. Without these, even `RUN echo hi` fails with
+                # "error setting supplemental groups list: operation not permitted".
+                - SETUID
+                - SETGID
           {{- end }}
           env:
             {{- if .Values.workbench.podman.enabled }}
