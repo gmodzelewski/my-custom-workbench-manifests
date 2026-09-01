@@ -98,15 +98,17 @@ The clone-repos init writes credentials, then clones `my-custom-workbench` and `
 
 ## Workbench Podman (cluster-admin, one-time)
 
-OpenShift sets the **pod UID** (Notebook `runAsUser: 1001` + this SCC). It does **not** write `/etc/subuid`. Nested rootless Podman would need that file plus `newuidmap`; the workbench image instead uses **`userns=host`** and `BUILDAH_ISOLATION=chroot` so Podman never calls `newuidmap`.
+The Notebook CR requests SCC **`nested-container`** on the pod template (`openshift.io/required-scc`) whenever `workbench.podman.enabled` is true, and sets `hostUsers: false` plus `procMount: Unmasked` on the workbench container. Built-in **`nested-container`** requires **OCP 4.20+**.
 
-Grant SCC **`custom-workbench-podman`** (UID **1001**). The SCC is **cluster-scoped** — Argo CD cannot create or patch it. Run once as cluster-admin:
+Grant that SCC to the workbench ServiceAccount (cluster-scoped — Argo CD cannot do this). Run once as cluster-admin:
 
 ```bash
 ./scripts/bootstrap-workbench-podman-scc.sh
 ```
 
-This applies `gitops/custom-workbench-podman-scc.yaml` and grants the SCC to the workbench ServiceAccount (`oc adm policy add-scc-to-user`). Custom SCCs do not get a `system:openshift:scc:*` ClusterRole, so a RoleBinding does not work.
+This runs `oc adm policy add-scc-to-user nested-container -z <workbench-sa> -n <workbench-ns>`. On clusters without `nested-container`, the script applies `gitops/custom-workbench-podman-scc.yaml` and grants **`custom-workbench-podman`** instead.
+
+Restart the workbench after bootstrap so the pod is recreated with the required SCC annotation.
 
 **Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false`. Storage uses **`vfs`** on the PVC. **Tekton is the production build path.** In-workbench `podman build` cannot run `RUN` steps: Buildah 5.8.2 calls `setgroups()` and CRI-O gives UID 1001 an empty capability set.
 

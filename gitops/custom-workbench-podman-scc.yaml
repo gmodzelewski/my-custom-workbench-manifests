@@ -1,7 +1,5 @@
-# Minimum SCC for in-workbench podman/buildah (UID 1001).
-# userns=host + chroot: no nested newuidmap. SETUID/SETGID remain allowed
-# on the bounding set; they do not make CapEff non-empty for UID 1001.
-# Apply: ./scripts/bootstrap-workbench-podman-scc.sh
+# Fallback SCC for in-workbench podman on OCP < 4.20 (no built-in nested-container).
+# On OCP 4.20+, prefer nested-container via workbench.podman.sccName and bootstrap-workbench-podman-scc.sh.
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
