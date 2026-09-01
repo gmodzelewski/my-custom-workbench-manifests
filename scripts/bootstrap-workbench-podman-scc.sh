@@ -22,6 +22,16 @@ fi
 
 oc adm policy add-scc-to-user "${SCC_NAME}" -z "${WORKBENCH_SA}" -n "${WORKBENCH_NS}"
 
+if [[ "${SCC_NAME}" == "nested-container" ]] && oc get scc custom-workbench-podman &>/dev/null; then
+  echo "Removing legacy custom-workbench-podman binding (priority 10 preempts nested-container)..."
+  oc adm policy remove-scc-from-user custom-workbench-podman -z "${WORKBENCH_SA}" -n "${WORKBENCH_NS}" 2>/dev/null || true
+fi
+
+if oc get statefulset "${WORKBENCH_SA}" -n "${WORKBENCH_NS}" &>/dev/null; then
+  WORKBENCH_NS="${WORKBENCH_NS}" WORKBENCH_NAME="${WORKBENCH_SA}" SCC_NAME="${SCC_NAME}" \
+    "${MANIFESTS_ROOT}/scripts/patch-workbench-statefulset-scc.sh"
+fi
+
 echo "SCC ${SCC_NAME} granted to ${WORKBENCH_NS}/${WORKBENCH_SA}"
-echo "Notebook CR sets openshift.io/required-scc=${SCC_NAME} on the pod template when workbench.podman.enabled=true."
+echo "GitOps PostSync job also patches the StatefulSet when workbench.podman.enabled=true."
 oc get scc "${SCC_NAME}" -o jsonpath='users={.users}{"\n"}'

@@ -34,6 +34,7 @@ spec:
             - .metadata.annotations["openshift.io/internal-registry-pull-secret-ref"]
         # RHOAI notebook controller merges oauth proxy, CA bundles, platform volumes,
         # normalizes initContainers (field order, resources: {}), and strips pod template metadata.
+        # openshift.io/required-scc is applied via PostSync Job on the StatefulSet (see workbench-scc-patch-job.yaml).
         - group: kubeflow.org
           kind: Notebook
           jqPathExpressions:

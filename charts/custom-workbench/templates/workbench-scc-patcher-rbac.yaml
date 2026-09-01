@@ -1,0 +1,43 @@
+{{- if and .Values.workbench.enabled .Values.workbench.podman.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.workbench.name }}-scc-patcher
+  namespace: {{ include "custom-workbench.workbenchNamespace" . }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.workbench.name }}-scc-patcher
+  namespace: {{ include "custom-workbench.workbenchNamespace" . }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.workbench.name }}-scc-patcher
+  namespace: {{ include "custom-workbench.workbenchNamespace" . }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.workbench.name }}-scc-patcher
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.workbench.name }}-scc-patcher
+    namespace: {{ include "custom-workbench.workbenchNamespace" . }}
+{{- end }}

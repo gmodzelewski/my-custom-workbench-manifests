@@ -98,17 +98,32 @@ The clone-repos init writes credentials, then clones `my-custom-workbench` and `
 
 ## Workbench Podman (cluster-admin, one-time)
 
-The Notebook CR requests SCC **`nested-container`** on the pod template (`openshift.io/required-scc`) whenever `workbench.podman.enabled` is true, and sets `hostUsers: false` plus `procMount: Unmasked` on the workbench container. Built-in **`nested-container`** requires **OCP 4.20+**.
+The workbench needs SCC **`nested-container`** (built-in on **OCP 4.20+**). The Notebook CR sets `hostUsers: false` and `procMount: Unmasked`, but **RHOAI strips `spec.template.metadata` on the Notebook CR** and does not propagate `openshift.io/required-scc` to pods. Without that annotation, OpenShift picks **`custom-workbench-podman`** (priority 10) instead of `nested-container`.
 
-Grant that SCC to the workbench ServiceAccount (cluster-scoped — Argo CD cannot do this). Run once as cluster-admin:
+**GitOps:** A PostSync Job (`workbench-scc-patch-job.yaml`) patches the notebook StatefulSet with `openshift.io/required-scc: nested-container` after each Argo CD sync.
+
+**Cluster-admin (one-time):** grant the SCC to the workbench ServiceAccount:
 
 ```bash
 ./scripts/bootstrap-workbench-podman-scc.sh
 ```
 
-This runs `oc adm policy add-scc-to-user nested-container -z <workbench-sa> -n <workbench-ns>`. On clusters without `nested-container`, the script applies `gitops/custom-workbench-podman-scc.yaml` and grants **`custom-workbench-podman`** instead.
+This runs `oc adm policy add-scc-to-user nested-container -z <workbench-sa> -n <workbench-ns>`, removes a legacy `custom-workbench-podman` binding if present, and patches the StatefulSet when it already exists. On clusters without `nested-container`, the script applies `gitops/custom-workbench-podman-scc.yaml` instead.
 
-Restart the workbench after bootstrap so the pod is recreated with the required SCC annotation.
+**Verify** (after workbench pod is running):
+
+```bash
+oc get pod -n custom-workbench-demo -l notebook-name=custom-workbench-demo \
+  -o jsonpath='{.items[0].metadata.annotations.openshift\.io/scc}{"\n"}'
+# Expected: nested-container
+```
+
+If the pod still shows `custom-workbench-podman`, run:
+
+```bash
+./scripts/patch-workbench-statefulset-scc.sh
+oc delete pod custom-workbench-demo-0 -n custom-workbench-demo
+```
 
 **Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false`. Storage uses **`vfs`** on the PVC. **Tekton is the production build path.** In-workbench `podman build` cannot run `RUN` steps: Buildah 5.8.2 calls `setgroups()` and CRI-O gives UID 1001 an empty capability set.
 

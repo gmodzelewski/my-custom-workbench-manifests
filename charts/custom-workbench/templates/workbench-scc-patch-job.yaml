@@ -1,0 +1,45 @@
+{{- if and .Values.workbench.enabled .Values.workbench.podman.enabled }}
+# RHOAI strips spec.template.metadata on the Notebook CR and does not propagate
+# openshift.io/required-scc from Notebook metadata to the StatefulSet. Patch the
+# StatefulSet created by the notebook controller so pods use nested-container.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.workbench.name }}-patch-scc
+  namespace: {{ include "custom-workbench.workbenchNamespace" . }}
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    {{- include "custom-workbench.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      serviceAccountName: {{ .Values.workbench.name }}-scc-patcher
+      restartPolicy: OnFailure
+      containers:
+        - name: patch
+          image: {{ .Values.workbench.podman.sccPatchImage | quote }}
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              set -euo pipefail
+              STS="{{ .Values.workbench.name }}"
+              NS="{{ include "custom-workbench.workbenchNamespace" . }}"
+              SCC="{{ .Values.workbench.podman.sccName }}"
+              for i in $(seq 1 36); do
+                if oc get statefulset "${STS}" -n "${NS}" &>/dev/null; then
+                  oc patch statefulset "${STS}" -n "${NS}" --type merge \
+                    -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"openshift.io/required-scc\":\"${SCC}\"}}}}}"
+                  echo "Patched statefulset/${STS} openshift.io/required-scc=${SCC}"
+                  exit 0
+                fi
+                echo "Waiting for statefulset/${STS} (attempt ${i}/36)..."
+                sleep 10
+              done
+              echo "ERROR: statefulset/${STS} not found in ${NS}"
+              exit 1
+{{- end }}

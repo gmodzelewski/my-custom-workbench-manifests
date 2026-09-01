@@ -69,6 +69,8 @@ workbench:
     fuseDevice: false
     # Built-in on OCP 4.20+; bootstrap script falls back to custom-workbench-podman on older clusters
     sccName: nested-container
+    # PostSync Job patches the notebook StatefulSet (RHOAI strips spec.template.metadata on Notebook CR)
+    sccPatchImage: registry.redhat.io/openshift4/ose-cli:rhel9
     # SCC is cluster-scoped — grant via scripts/bootstrap-workbench-podman-scc.sh (cluster-admin)
     createScc: false
     runAsUser: 1001

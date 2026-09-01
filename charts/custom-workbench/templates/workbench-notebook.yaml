@@ -17,16 +17,17 @@ metadata:
     opendatahub.io/hardware-profile-namespace: {{ .Values.workbench.hardwareProfile.namespace | quote }}
     openshift.io/display-name: {{ .Values.workbench.displayName | quote }}
     openshift.io/description: {{ .Values.workbench.description | quote }}
+    {{- if .Values.workbench.podman.enabled }}
+    # Documented intent; RHOAI does not propagate this to pods — see workbench-scc-patch-job.yaml
+    openshift.io/required-scc: {{ .Values.workbench.podman.sccName | quote }}
+    {{- end }}
     argocd.argoproj.io/sync-wave: "3"
 spec:
   template:
-    {{- if .Values.workbench.podman.enabled }}
+    {{- if and .Values.workbench.podman.enabled .Values.workbench.podman.fuseDevice }}
     metadata:
       annotations:
-        openshift.io/required-scc: {{ .Values.workbench.podman.sccName | quote }}
-        {{- if .Values.workbench.podman.fuseDevice }}
         io.kubernetes.cri-o.Devices: /dev/fuse
-        {{- end }}
     {{- end }}
     spec:
       {{- if .Values.workbench.podman.enabled }}
