@@ -108,14 +108,7 @@ Grant SCC **`custom-workbench-podman`** (UID **1001**). The SCC is **cluster-sco
 
 This applies `gitops/custom-workbench-podman-scc.yaml` and grants the SCC to the workbench ServiceAccount (`oc adm policy add-scc-to-user`). Custom SCCs do not get a `system:openshift:scc:*` ClusterRole, so a RoleBinding does not work.
 
-**Security model:** The workbench pod runs as non-root UID **1001**. `allowPrivilegeEscalation` is **true** so file capabilities on `/usr/bin/podman` (`SETUID`/`SETGID`) can apply — CRI-O leaves `CapEff` empty for UID 1001, and Buildah chroot `RUN` calls `setgroups()` (Podman 5.8.2). Storage uses **`vfs`** on the PVC. **Tekton remains the production build path**; in-workbench Podman is debug-only.
-
-Argo `ignoreDifferences` on Notebook `containers` means Helm `securityContext` is not applied after the first create. After changing it, run:
-
-```bash
-./scripts/patch-workbench-notebook-podman.sh
-oc delete pod -l notebook-name=custom-workbench-demo -n custom-workbench-demo
-```
+**Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false`. Storage uses **`vfs`** on the PVC. **Tekton is the production build path.** In-workbench `podman build` cannot run `RUN` steps: Buildah 5.8.2 calls `setgroups()` and CRI-O gives UID 1001 an empty capability set.
 
 The Notebook spec sets `runAsUser` / `fsGroup` **1001** (`fsGroupChangePolicy: OnRootMismatch`). Restart the workbench from the RHOAI dashboard after bootstrap.
 
@@ -138,10 +131,9 @@ export REGISTRY_AUTH_FILE=~/.config/containers/auth.json
 ```bash
 podman --version
 podman info | rg -i 'graphRoot|driver|userns'
-cd /opt/app-root/src/my-custom-workbench
-podman build -t localhost/custom-workbench:debug -f Containerfile .
-podman run --rm localhost/custom-workbench:debug opencode --version
 ```
+
+In-workbench `podman build -f Containerfile .` will fail on `RUN` (`setgroups` EPERM). Use Tekton.
 
 **Lab/demo:** copy `charts/custom-workbench/values-lab.yaml.example` to `values-lab.yaml` (gitignored), fill credentials, and add to Argo CD `helm.valueFiles`.
 

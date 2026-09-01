@@ -80,7 +80,7 @@ spec:
                 target="/opt/app-root/src/${rel}"
                 if [ -e "$target" ] && [ "$(stat -c '%u' "$target" 2>/dev/null || echo x)" != "${WORKDIR_UID}" ]; then
                   echo "Removing ${target} (owner mismatch for UID ${WORKDIR_UID})"
-                  rm -rf "$target"
+                  rm -rf "$target" || true
                 fi
               done
               mkdir -p /opt/app-root/src/.config/containers \
@@ -89,7 +89,7 @@ spec:
               avail_kb="$(df -P /opt/app-root/src | awk 'NR==2 { print $4 }')"
               if [ "${avail_kb:-0}" -lt 1048576 ]; then
                 echo "PVC has <1Gi free (${avail_kb}K); removing leftover podman storage"
-                rm -rf /opt/app-root/src/.local/share/containers
+                rm -rf /opt/app-root/src/.local/share/containers || true
                 mkdir -p /opt/app-root/src/.local/share/containers/storage
               fi
               {{- if eq (include "custom-workbench.workbenchRegistryAuthEnabled" .) "true" }}
@@ -136,13 +136,7 @@ spec:
           workingDir: /opt/app-root/src
           {{- if .Values.workbench.podman.enabled }}
           securityContext:
-            # no_new_privs must be off so file caps on /usr/bin/podman (SETGID)
-            # apply. CRI-O does not put capabilities.add into CapEff for UID 1001.
-            allowPrivilegeEscalation: true
-            capabilities:
-              add:
-                - SETUID
-                - SETGID
+            allowPrivilegeEscalation: false
           {{- end }}
           env:
             {{- if .Values.workbench.podman.enabled }}

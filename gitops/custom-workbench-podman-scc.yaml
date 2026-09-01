@@ -1,8 +1,6 @@
 # Minimum SCC for in-workbench podman/buildah (UID 1001).
-# The workbench image uses userns=host + BUILDAH_ISOLATION=chroot, so nested
-# user namespaces (newuidmap / /etc/subuid) are not required.
-# SETUID/SETGID stay on the SCC bounding set so file caps on /usr/bin/podman
-# can raise them for `podman build` (UID 1001 has empty CapEff from CRI-O).
+# userns=host + chroot: no nested newuidmap. SETUID/SETGID remain allowed
+# on the bounding set; they do not make CapEff non-empty for UID 1001.
 # Apply: ./scripts/bootstrap-workbench-podman-scc.sh
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
@@ -11,7 +9,6 @@ metadata:
   annotations:
     kubernetes.io/description: >-
       Workbench Podman (UID 1001). Image default is userns=host + chroot.
-      SETUID/SETGID let Buildah chroot RUN steps call setgroups().
       No privileged containers or host access.
 allowHostDirVolumePlugin: false
 allowHostIPC: false
