@@ -36,9 +36,10 @@ spec:
         - |
           set -e
           rm -rf /data/.local/share/containers
-          mkdir -p /data/.local/share/containers/storage
-          chown -R ${WORKBENCH_UID}:${WORKBENCH_UID} /data/.local/share/containers
-          chmod -R ug+rwX /data/.local/share/containers
+          rm -f /data/.local/.git-credentials /data/.local/.gitconfig 2>/dev/null || true
+          mkdir -p /data/.local/share/containers/storage /data/.local /data/.config/containers
+          chown -R ${WORKBENCH_UID}:${WORKBENCH_UID} /data/.local /data/.config
+          chmod -R ug+rwX /data/.local /data/.config
           echo cleaned
           ls -ld /data/.local/share/containers /data/.local/share/containers/storage
           df -h /data

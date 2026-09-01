@@ -110,7 +110,15 @@ spec:
               {{- end }}
               {{- if eq (include "custom-workbench.workbenchGitSecretEnabled" .) "true" }}
               mkdir -p /opt/app-root/src/.local
-              rm -f /opt/app-root/src/.local/.git-credentials /opt/app-root/src/.gitconfig
+              for rel in .git-credentials .gitconfig; do
+                target="/opt/app-root/src/.local/${rel}"
+                if [ -e "$target" ] && [ ! -w "$target" ]; then
+                  echo "Removing ${target} (not writable by UID $(id -u))"
+                  rm -f "$target" 2>/dev/null || true
+                else
+                  rm -f "$target" 2>/dev/null || true
+                fi
+              done
               printf '%s' "${WORKBENCH_GIT_CREDENTIALS}" > /opt/app-root/src/.local/.git-credentials
               printf '%s' "${WORKBENCH_GITCONFIG}" > /opt/app-root/src/.gitconfig
               chmod 600 /opt/app-root/src/.local/.git-credentials /opt/app-root/src/.gitconfig
