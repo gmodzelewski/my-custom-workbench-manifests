@@ -110,6 +110,12 @@ This applies `gitops/custom-workbench-podman-scc.yaml` and grants the SCC to the
 
 **Security model:** The workbench pod runs as non-root UID **1001** with `allowPrivilegeEscalation: false`. Storage uses **`vfs`** on the PVC. **Tekton is the production build path.** In-workbench `podman build` cannot run `RUN` steps: Buildah 5.8.2 calls `setgroups()` and CRI-O gives UID 1001 an empty capability set.
 
+If `podman` fails with `mkdir .../containers/storage/libpod: permission denied`, the PVC dir is leftover **root-owned** storage. As cluster-admin:
+
+```bash
+./scripts/fix-workbench-podman-storage.sh
+```
+
 The Notebook spec sets `runAsUser` / `fsGroup` **1001** (`fsGroupChangePolicy: OnRootMismatch`). Restart the workbench from the RHOAI dashboard after bootstrap.
 
 For `podman build`, bootstrap registry auth so pulls from `registry.redhat.io` work:

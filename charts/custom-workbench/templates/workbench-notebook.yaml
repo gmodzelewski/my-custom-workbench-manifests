@@ -85,6 +85,10 @@ spec:
               done
               mkdir -p /opt/app-root/src/.config/containers \
                        /opt/app-root/src/.local/share/containers/storage
+              if [ ! -w /opt/app-root/src/.local/share/containers/storage ]; then
+                echo "Podman storage is not writable by UID ${WORKDIR_UID} (leftover root-owned dir)."
+                echo "As cluster-admin: ./scripts/fix-workbench-podman-storage.sh"
+              fi
               # vfs graphroot lives on the 20Gi PVC; leftover storage fills it and podman fails.
               avail_kb="$(df -P /opt/app-root/src | awk 'NR==2 { print $4 }')"
               if [ "${avail_kb:-0}" -lt 1048576 ]; then
