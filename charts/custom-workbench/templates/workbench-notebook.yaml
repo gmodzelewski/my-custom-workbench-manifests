@@ -85,6 +85,13 @@ spec:
               done
               mkdir -p /opt/app-root/src/.config/containers \
                        /opt/app-root/src/.local/share/containers/storage
+              # vfs graphroot lives on the 20Gi PVC; leftover storage fills it and podman fails.
+              avail_kb="$(df -P /opt/app-root/src | awk 'NR==2 { print $4 }')"
+              if [ "${avail_kb:-0}" -lt 1048576 ]; then
+                echo "PVC has <1Gi free (${avail_kb}K); removing leftover podman storage"
+                rm -rf /opt/app-root/src/.local/share/containers
+                mkdir -p /opt/app-root/src/.local/share/containers/storage
+              fi
               {{- if eq (include "custom-workbench.workbenchRegistryAuthEnabled" .) "true" }}
               if [ -n "${WORKBENCH_REGISTRY_AUTH_JSON:-}" ]; then
                 printf '%s' "${WORKBENCH_REGISTRY_AUTH_JSON}" > /opt/app-root/src/.config/containers/auth.json
@@ -98,6 +105,8 @@ spec:
               printf '%s' "${WORKBENCH_GIT_CREDENTIALS}" > /opt/app-root/src/.local/.git-credentials
               printf '%s' "${WORKBENCH_GITCONFIG}" > /opt/app-root/src/.gitconfig
               chmod 600 /opt/app-root/src/.local/.git-credentials /opt/app-root/src/.gitconfig
+              # PVC clones may be owned by a previous OpenShift UID; git then refuses pull.
+              git config --file /opt/app-root/src/.gitconfig --add safe.directory '*'
               {{- end }}
               {{- range .Values.workbench.cloneRepos.repos }}
               DEST="/opt/app-root/src/{{ .dir }}"
@@ -108,7 +117,12 @@ spec:
                   "${DEST}" || echo "git clone {{ .dir }} skipped"
               else
                 echo "Updating {{ .dir }}"
-                git -C "${DEST}" pull --ff-only || echo "{{ .dir }} pull skipped"
+                git -C "${DEST}" pull --ff-only || {
+                  echo "{{ .dir }} not fast-forwardable; resetting to upstream"
+                  git -C "${DEST}" fetch origin \
+                    && git -C "${DEST}" reset --hard '@{upstream}' \
+                    || echo "{{ .dir }} pull skipped"
+                }
               fi
               {{- end }}
           volumeMounts:

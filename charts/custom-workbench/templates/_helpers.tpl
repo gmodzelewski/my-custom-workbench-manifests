@@ -124,6 +124,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 [user]
     name = {{ include "custom-workbench.workbenchGitUsername" . }}
     email = {{ include "custom-workbench.workbenchGitUsername" . }}@users.noreply.github.com
+[safe]
+    directory = *
 {{- end }}
 
 {{- define "custom-workbench.imageSelection" -}}

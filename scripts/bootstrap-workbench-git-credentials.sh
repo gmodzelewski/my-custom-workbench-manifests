@@ -31,6 +31,8 @@ cat >"${GITCONFIG}" <<EOF
 [user]
     name = ${GIT_USERNAME}
     email = ${GIT_USERNAME}@users.noreply.github.com
+[safe]
+    directory = *
 EOF
 
 oc create secret generic "${WORKBENCH_GIT_SECRET}" \
