@@ -38,6 +38,13 @@ spec:
           rm -rf /data/.local/share/containers
           rm -f /data/.local/.git-credentials /data/.local/.gitconfig 2>/dev/null || true
           mkdir -p /data/.local/share/containers/storage /data/.local /data/.config/containers
+          # Re-own PVC content after nested-container / user-namespace UID mapping (nobody=65534).
+          for repo in my-custom-workbench my-custom-workbench-manifests; do
+            if [ -d "/data/\${repo}" ]; then
+              chown -R ${WORKBENCH_UID}:${WORKBENCH_UID} "/data/\${repo}"
+              chmod -R ug+rwX "/data/\${repo}"
+            fi
+          done
           chown -R ${WORKBENCH_UID}:${WORKBENCH_UID} /data/.local /data/.config
           chmod -R ug+rwX /data/.local /data/.config
           echo cleaned

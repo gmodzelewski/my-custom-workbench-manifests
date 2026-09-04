@@ -79,8 +79,8 @@ spec:
             - -lc
             - |
               set -euo pipefail
-              {{- if .Values.workbench.podman.enabled }}
               WORKDIR_UID="$(id -u)"
+              {{- if .Values.workbench.podman.enabled }}
               for rel in .config .local/share/containers; do
                 target="/opt/app-root/src/${rel}"
                 if [ -e "$target" ] && [ "$(stat -c '%u' "$target" 2>/dev/null || echo x)" != "${WORKDIR_UID}" ]; then
@@ -140,6 +140,10 @@ spec:
                     && git -C "${DEST}" reset --hard '@{upstream}' \
                     || echo "{{ .dir }} pull skipped"
                 }
+              fi
+              if [ -d "${DEST}" ]; then
+                chown -R "${WORKDIR_UID}:$(id -g)" "${DEST}" 2>/dev/null || true
+                chmod -R ug+rwX "${DEST}" 2>/dev/null || true
               fi
               {{- end }}
           volumeMounts:
